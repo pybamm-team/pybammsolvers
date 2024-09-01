@@ -14,7 +14,7 @@ import importlib
 import warnings
 import pybammsolvers
 
-if pybamm.have_jax():
+if pybamm.has_jax():
     import jax
     from jax import numpy as jnp
 
