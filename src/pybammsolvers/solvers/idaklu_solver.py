@@ -33,11 +33,11 @@ if idaklu_spec is not None:
         idaklu_spec = None
 
 
-def have_idaklu():
+def has_idaklu():
     return idaklu_spec is not None
 
 
-def have_iree():
+def has_iree():
     try:
         import iree.compiler  # noqa: F401
 
