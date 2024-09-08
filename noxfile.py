@@ -7,10 +7,10 @@ from pathlib import Path
 
 
 # Options to modify nox behaviour
-nox.options.default_venv_backend = "virtualenv"
+nox.options.default_venv_backend = "uv|virtualenv"
 nox.options.reuse_existing_virtualenvs = True
 if sys.platform != "win32":
-    nox.options.sessions = ["pre-commit", "pybamm-requires", "unit"]
+    nox.options.sessions = ["pre-commit", "idaklu-requires", "unit"]
 else:
     nox.options.sessions = ["pre-commit", "unit"]
 
@@ -83,7 +83,7 @@ def set_environment_variables(env_dict, session):
         session.env[key] = value
 
 
-@nox.session(name="pybamm-requires")
+@nox.session(name="idaklu-requires")
 def run_pybamm_requires(session):
     """Download, compile, and install the build-time requirements for Linux and macOS. Supports --install-dir for custom installation paths and --force to force installation."""
     set_environment_variables(PYBAMM_ENV, session=session)
@@ -128,7 +128,7 @@ def run_pybamm_requires(session):
                     external=True,
                 )
     else:
-        session.error("nox -s pybamm-requires is only available on Linux & macOS.")
+        session.error("nox -s idaklu-requires is only available on Linux & macOS.")
 
 @nox.session(name="unit")
 def run_unit(session):
