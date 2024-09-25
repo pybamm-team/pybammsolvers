@@ -10,6 +10,7 @@ from os.path import join, isfile
 from urllib.parse import urlparse
 from concurrent.futures import ThreadPoolExecutor
 from multiprocessing import cpu_count
+import pathlib
 
 
 SUITESPARSE_VERSION = "6.0.3"
@@ -20,7 +21,7 @@ SUITESPARSE_CHECKSUM = (
     "7111b505c1207f6f4bd0be9740d0b2897e1146b845d73787df07901b4f5c1fb7"
 )
 SUNDIALS_CHECKSUM = "4e0b998dff292a2617e179609b539b511eb80836f5faacf800e688a886288502"
-DEFAULT_INSTALL_DIR = os.path.join(os.getenv("HOME"), ".idaklu")
+DEFAULT_INSTALL_DIR = pathlib.Path(__file__).parent.resolve() / ".idaklu"
 
 
 def safe_remove_dir(path):
