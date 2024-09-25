@@ -13,7 +13,7 @@ from setuptools.command.build_ext import build_ext
 
 
 default_lib_dir = (
-    "" if system() == "Windows" else os.path.join(os.getenv("HOME"), ".idaklu")
+    "" if system() == "Windows" else str(Path(__file__).parent.resolve() / ".idaklu")
 )
 
 # ---------- set environment variables for vcpkg on Windows ----------------------------

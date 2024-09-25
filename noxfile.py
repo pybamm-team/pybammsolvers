@@ -89,7 +89,7 @@ def run_pybamm_requires(session):
     set_environment_variables(PYBAMM_ENV, session=session)
     if sys.platform != "win32":
         session.install("cmake", silent=False)
-        session.run("python", "scripts/install_KLU_Sundials.py", *session.posargs)
+        session.run("python", "install_KLU_Sundials.py", *session.posargs)
         if not os.path.exists("./pybind11"):
             session.run(
                 "git",
