@@ -22,7 +22,6 @@ dependencies = ["pybamm", "casadi", "jax", "jaxlib"]
 [project.optional-dependencies]
 dev = [
     "pytest",
-    "scikit-fem>=8.1.0",
 ]
 
 [tools.setuptools.packages.find]
