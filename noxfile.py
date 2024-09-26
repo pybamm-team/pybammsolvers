@@ -52,7 +52,7 @@ def set_iree_state():
     return state
 
 
-homedir = os.getenv("HOME")
+homedir = Path(__file__)
 PYBAMM_ENV = {
     "LD_LIBRARY_PATH": f"{homedir}/.idaklu/lib",
     "PYTHONIOENCODING": "utf-8",
