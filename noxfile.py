@@ -10,9 +10,9 @@ from pathlib import Path
 nox.options.default_venv_backend = "uv|virtualenv"
 nox.options.reuse_existing_virtualenvs = True
 if sys.platform != "win32":
-    nox.options.sessions = ["pre-commit", "idaklu-requires", "unit"]
+    nox.options.sessions = ["idaklu-requires", "unit"]
 else:
-    nox.options.sessions = ["pre-commit", "unit"]
+    nox.options.sessions = ["unit"]
 
 
 def set_iree_state():
