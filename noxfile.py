@@ -145,5 +145,5 @@ def run_unit(session):
             PYBAMM_ENV.get("IREE_INDEX_URL"),
             silent=False,
         )
-    session.run("pytest", "-m", "tests/test_dummy")
+    session.run("pytest", "tests")
 
