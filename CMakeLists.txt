@@ -121,6 +121,8 @@ execute_process(
 if (CASADI_DIR)
   file(TO_CMAKE_PATH ${CASADI_DIR} CASADI_DIR)
   message("Found Python casadi path: ${CASADI_DIR}")
+else()
+  message("Did not find casadi path}")
 endif()
 
 if(${USE_PYTHON_CASADI})

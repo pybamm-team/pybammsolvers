@@ -87,22 +87,7 @@ def run_pybamm_requires(session):
     """Download, compile, and install the build-time requirements for Linux and macOS. Supports --install-dir for custom installation paths and --force to force installation."""
     set_environment_variables(PYBAMM_ENV, session=session)
     if sys.platform != "win32":
-        session.install("cmake", silent=False)
         session.run("python", "install_KLU_Sundials.py", *session.posargs)
-        if not os.path.exists("./pybind11"):
-            session.run(
-                "git",
-                "clone",
-                "--depth",
-                "1",
-                "--branch",
-                "v2.12.0",
-                "https://github.com/pybind/pybind11.git",
-                "pybind11/",
-                "-c",
-                "advice.detachedHead=false",
-                external=True,
-            )
         if PYBAMM_ENV.get("PYBAMM_IDAKLU_EXPR_IREE") == "ON" and not os.path.exists(
             "./iree"
         ):

@@ -24,7 +24,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: |
-          sudo apt-get install cmake gfortran gcc libopenblas-dev
+          sudo apt-get install gfortran gcc libopenblas-dev
           pip install nox
 
       - name: Build and test

@@ -11,4 +11,3 @@ install_KLU_Sundials
 .idaklu
 build
 workspace
-pybind11
