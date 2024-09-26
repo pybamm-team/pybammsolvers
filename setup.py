@@ -255,82 +255,46 @@ class bdist_wheel(orig.bdist_wheel):
         orig.bdist_wheel.run(self)
 
 
-def compile_KLU():
-    # Return whether or not the KLU extension should be compiled.
-    # Return True if:
-    # - Not running on Windows AND
-    # - CMake is found AND
-    # - The pybind11/ directory is found in the PyBaMM project directory
-    CMakeFound = True
-    PyBind11Found = True
-    windows = (not system()) or system() == "Windows"
-
-    msg = "Running on Windows" if windows else "Not running on windows"
-    logger.info(msg)
-
-    try:
-        subprocess.run(["cmake", "--version"])
-        logger.info("Found CMake.")
-    except OSError:
-        CMakeFound = False
-        logger.info("Could not find CMake. Skipping compilation of KLU module.")
-
-    pybamm_project_dir = os.path.dirname(os.path.abspath(__file__))
-    pybind11_dir = os.path.join(pybamm_project_dir, "pybind11")
-    try:
-        open(os.path.join(pybind11_dir, "tools", "pybind11Tools.cmake"))
-        logger.info(f"Found pybind11 directory ({pybind11_dir})")
-    except FileNotFoundError:
-        PyBind11Found = False
-        msg = (
-            f"Could not find PyBind11 directory ({pybind11_dir})."
-            " Skipping compilation of KLU module."
-        )
-        logger.info(msg)
-
-    return CMakeFound and PyBind11Found
-
-
 idaklu_ext = Extension(
-    name="pybammsolvers.solvers.idaklu",
+    name="pybammsolvers.idaklu",
     # The sources list should mirror the list in CMakeLists.txt
     sources=[
-        "src/pybammsolvers/solvers/c_solvers/idaklu/Expressions/Expressions.hpp",
-        "src/pybammsolvers/solvers/c_solvers/idaklu/Expressions/Base/Expression.hpp",
-        "src/pybammsolvers/solvers/c_solvers/idaklu/Expressions/Base/ExpressionSet.hpp",
-        "src/pybammsolvers/solvers/c_solvers/idaklu/Expressions/Base/ExpressionTypes.hpp",
-        "src/pybammsolvers/solvers/c_solvers/idaklu/Expressions/Base/ExpressionSparsity.hpp",
-        "src/pybammsolvers/solvers/c_solvers/idaklu/Expressions/Casadi/CasadiFunctions.cpp",
-        "src/pybammsolvers/solvers/c_solvers/idaklu/Expressions/Casadi/CasadiFunctions.hpp",
-        "src/pybammsolvers/solvers/c_solvers/idaklu/Expressions/IREE/IREEBaseFunction.hpp",
-        "src/pybammsolvers/solvers/c_solvers/idaklu/Expressions/IREE/IREEFunction.hpp",
-        "src/pybammsolvers/solvers/c_solvers/idaklu/Expressions/IREE/IREEFunctions.cpp",
-        "src/pybammsolvers/solvers/c_solvers/idaklu/Expressions/IREE/IREEFunctions.hpp",
-        "src/pybammsolvers/solvers/c_solvers/idaklu/Expressions/IREE/iree_jit.cpp",
-        "src/pybammsolvers/solvers/c_solvers/idaklu/Expressions/IREE/iree_jit.hpp",
-        "src/pybammsolvers/solvers/c_solvers/idaklu/Expressions/IREE/ModuleParser.cpp",
-        "src/pybammsolvers/solvers/c_solvers/idaklu/Expressions/IREE/ModuleParser.hpp",
-        "src/pybammsolvers/solvers/c_solvers/idaklu/idaklu_solver.hpp",
-        "src/pybammsolvers/solvers/c_solvers/idaklu/IDAKLUSolver.cpp",
-        "src/pybammsolvers/solvers/c_solvers/idaklu/IDAKLUSolver.hpp",
-        "src/pybammsolvers/solvers/c_solvers/idaklu/IDAKLUSolverOpenMP.inl",
-        "src/pybammsolvers/solvers/c_solvers/idaklu/IDAKLUSolverOpenMP.hpp",
-        "src/pybammsolvers/solvers/c_solvers/idaklu/IDAKLUSolverOpenMP_solvers.cpp",
-        "src/pybammsolvers/solvers/c_solvers/idaklu/IDAKLUSolverOpenMP_solvers.hpp",
-        "src/pybammsolvers/solvers/c_solvers/idaklu/sundials_functions.inl",
-        "src/pybammsolvers/solvers/c_solvers/idaklu/sundials_functions.hpp",
-        "src/pybammsolvers/solvers/c_solvers/idaklu/IdakluJax.cpp",
-        "src/pybammsolvers/solvers/c_solvers/idaklu/IdakluJax.hpp",
-        "src/pybammsolvers/solvers/c_solvers/idaklu/common.hpp",
-        "src/pybammsolvers/solvers/c_solvers/idaklu/common.cpp",
-        "src/pybammsolvers/solvers/c_solvers/idaklu/Solution.cpp",
-        "src/pybammsolvers/solvers/c_solvers/idaklu/Solution.hpp",
-        "src/pybammsolvers/solvers/c_solvers/idaklu/Options.hpp",
-        "src/pybammsolvers/solvers/c_solvers/idaklu/Options.cpp",
-        "src/pybammsolvers/solvers/c_solvers/idaklu.cpp",
+        "src/pybammsolvers/idaklu/Expressions/Expressions.hpp",
+        "src/pybammsolvers/idaklu/Expressions/Base/Expression.hpp",
+        "src/pybammsolvers/idaklu/Expressions/Base/ExpressionSet.hpp",
+        "src/pybammsolvers/idaklu/Expressions/Base/ExpressionTypes.hpp",
+        "src/pybammsolvers/idaklu/Expressions/Base/ExpressionSparsity.hpp",
+        "src/pybammsolvers/idaklu/Expressions/Casadi/CasadiFunctions.cpp",
+        "src/pybammsolvers/idaklu/Expressions/Casadi/CasadiFunctions.hpp",
+        "src/pybammsolvers/idaklu/Expressions/IREE/IREEBaseFunction.hpp",
+        "src/pybammsolvers/idaklu/Expressions/IREE/IREEFunction.hpp",
+        "src/pybammsolvers/idaklu/Expressions/IREE/IREEFunctions.cpp",
+        "src/pybammsolvers/idaklu/Expressions/IREE/IREEFunctions.hpp",
+        "src/pybammsolvers/idaklu/Expressions/IREE/iree_jit.cpp",
+        "src/pybammsolvers/idaklu/Expressions/IREE/iree_jit.hpp",
+        "src/pybammsolvers/idaklu/Expressions/IREE/ModuleParser.cpp",
+        "src/pybammsolvers/idaklu/Expressions/IREE/ModuleParser.hpp",
+        "src/pybammsolvers/idaklu/idaklu_solver.hpp",
+        "src/pybammsolvers/idaklu/IDAKLUSolver.cpp",
+        "src/pybammsolvers/idaklu/IDAKLUSolver.hpp",
+        "src/pybammsolvers/idaklu/IDAKLUSolverOpenMP.inl",
+        "src/pybammsolvers/idaklu/IDAKLUSolverOpenMP.hpp",
+        "src/pybammsolvers/idaklu/IDAKLUSolverOpenMP_solvers.cpp",
+        "src/pybammsolvers/idaklu/IDAKLUSolverOpenMP_solvers.hpp",
+        "src/pybammsolvers/idaklu/sundials_functions.inl",
+        "src/pybammsolvers/idaklu/sundials_functions.hpp",
+        "src/pybammsolvers/idaklu/IdakluJax.cpp",
+        "src/pybammsolvers/idaklu/IdakluJax.hpp",
+        "src/pybammsolvers/idaklu/common.hpp",
+        "src/pybammsolvers/idaklu/common.cpp",
+        "src/pybammsolvers/idaklu/Solution.cpp",
+        "src/pybammsolvers/idaklu/Solution.hpp",
+        "src/pybammsolvers/idaklu/Options.hpp",
+        "src/pybammsolvers/idaklu/Options.cpp",
+        "src/pybammsolvers/idaklu.cpp",
     ],
 )
-ext_modules = [idaklu_ext] if compile_KLU() else []
+ext_modules = [idaklu_ext]
 
 # Project metadata was moved to pyproject.toml (which is read by pip). However, custom
 # build commands and setuptools extension modules are still defined here.
