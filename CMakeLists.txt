@@ -19,7 +19,7 @@ endif()
 
 project(idaklu)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
@@ -82,6 +82,8 @@ pybind11_add_module(idaklu
   src/pybammsolvers/idaklu_source/idaklu_solver.hpp
   src/pybammsolvers/idaklu_source/IDAKLUSolver.cpp
   src/pybammsolvers/idaklu_source/IDAKLUSolver.hpp
+  src/pybammsolvers/idaklu_source/IDAKLUSolverGroup.cpp
+  src/pybammsolvers/idaklu_source/IDAKLUSolverGroup.hpp
   src/pybammsolvers/idaklu_source/IDAKLUSolverOpenMP.inl
   src/pybammsolvers/idaklu_source/IDAKLUSolverOpenMP.hpp
   src/pybammsolvers/idaklu_source/IDAKLUSolverOpenMP_solvers.cpp
@@ -94,6 +96,8 @@ pybind11_add_module(idaklu
   src/pybammsolvers/idaklu_source/common.cpp
   src/pybammsolvers/idaklu_source/Solution.cpp
   src/pybammsolvers/idaklu_source/Solution.hpp
+  src/pybammsolvers/idaklu_solver/SolutionData.cpp
+  src/pybammsolvers/idaklu_solver/SolutionData.hpp
   src/pybammsolvers/idaklu_source/Options.hpp
   src/pybammsolvers/idaklu_source/Options.cpp
   # IDAKLU expressions / function evaluation [abstract]
@@ -122,7 +126,7 @@ if (CASADI_DIR)
   file(TO_CMAKE_PATH ${CASADI_DIR} CASADI_DIR)
   message("Found Python casadi path: ${CASADI_DIR}")
 else()
-  message("Did not find casadi path}")
+  message(FATAL_ERROR "Did not find casadi path}")
 endif()
 
 if(${USE_PYTHON_CASADI})
@@ -139,6 +143,23 @@ set_target_properties(
   INSTALL_RPATH "${CASADI_DIR}"
   INSTALL_RPATH_USE_LINK_PATH TRUE
 )
+
+# openmp
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  execute_process(
+      COMMAND "brew" "--prefix"
+      OUTPUT_VARIABLE HOMEBREW_PREFIX
+      OUTPUT_STRIP_TRAILING_WHITESPACE)
+  if (OpenMP_ROOT)
+    set(OpenMP_ROOT "${OpenMP_ROOT}:${HOMEBREW_PREFIX}/opt/libomp")
+  else()
+    set(OpenMP_ROOT "${HOMEBREW_PREFIX}/opt/libomp")
+  endif()
+endif()
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(idaklu PRIVATE OpenMP::OpenMP_CXX)
+endif()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR})
 # Sundials
