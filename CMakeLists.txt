@@ -114,11 +114,10 @@ if (NOT DEFINED USE_PYTHON_CASADI)
   set(USE_PYTHON_CASADI TRUE)
 endif()
 
-# Use importlib to find the casadi path without importing it. This is useful
-# to find the path for the build-time dependency, not the run-time dependency.
+
 execute_process(
     COMMAND "${PYTHON_EXECUTABLE}" -c
-    "import importlib.util; print(next(iter(importlib.util.find_spec('casadi').submodule_search_locations)))"
+    "import os; import sysconfig; print(os.path.join(sysconfig.get_path('purelib'), 'casadi', 'cmake'))"
     OUTPUT_VARIABLE CASADI_DIR
     OUTPUT_STRIP_TRAILING_WHITESPACE)
 
@@ -130,7 +129,7 @@ else()
 endif()
 
 if(${USE_PYTHON_CASADI})
-  message("Trying to link against Python casadi package")
+  message("Trying to link against Python casadi package in ${CASADI_DIR}")
   find_package(casadi CONFIG PATHS ${CASADI_DIR} REQUIRED NO_DEFAULT_PATH)
 else()
   message("Trying to link against any casadi package apart from the Python one")
