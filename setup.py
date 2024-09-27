@@ -1,6 +1,5 @@
 import os
 import sys
-import logging
 import subprocess
 from multiprocessing import cpu_count
 from pathlib import Path
@@ -170,8 +169,6 @@ class CMakeBuild(build_ext):
         # Get destination location
         # self.get_ext_fullpath(ext.name) -->
         # build/lib.linux-x86_64-3.5/idaklu.cpython-37m-x86_64-linux-gnu.so
-        # using resolve() with python < 3.6 will result in a FileNotFoundError
-        # since the location does not yet exists.
         dest_path = Path(self.get_ext_fullpath(ext.name)).resolve()
         source_path = build_temp / os.path.basename(self.get_ext_filename(ext.name))
         dest_directory = dest_path.parents[0]
@@ -180,27 +177,6 @@ class CMakeBuild(build_ext):
 
 
 # ---------- end of CMake steps --------------------------------------------------------
-
-
-# ---------- configure setup logger ----------------------------------------------------
-
-
-log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-logger = logging.getLogger("PyBaMM setup")
-
-# To override the default severity of logging
-logger.setLevel("INFO")
-
-# Use FileHandler() to log to a file
-logfile = os.path.join(os.path.dirname(os.path.abspath(__file__)), "setup.log")
-file_handler = logging.FileHandler(logfile)
-formatter = logging.Formatter(log_format)
-file_handler.setFormatter(formatter)
-
-# Add the file handler
-logger.addHandler(file_handler)
-logger.info("Starting PyBaMM setup")
-
 
 class CustomInstall(install):
     """A custom install command to add 2 build options"""
@@ -259,38 +235,38 @@ idaklu_ext = Extension(
     name="pybammsolvers.idaklu",
     # The sources list should mirror the list in CMakeLists.txt
     sources=[
-        "src/pybammsolvers/idaklu/Expressions/Expressions.hpp",
-        "src/pybammsolvers/idaklu/Expressions/Base/Expression.hpp",
-        "src/pybammsolvers/idaklu/Expressions/Base/ExpressionSet.hpp",
-        "src/pybammsolvers/idaklu/Expressions/Base/ExpressionTypes.hpp",
-        "src/pybammsolvers/idaklu/Expressions/Base/ExpressionSparsity.hpp",
-        "src/pybammsolvers/idaklu/Expressions/Casadi/CasadiFunctions.cpp",
-        "src/pybammsolvers/idaklu/Expressions/Casadi/CasadiFunctions.hpp",
-        "src/pybammsolvers/idaklu/Expressions/IREE/IREEBaseFunction.hpp",
-        "src/pybammsolvers/idaklu/Expressions/IREE/IREEFunction.hpp",
-        "src/pybammsolvers/idaklu/Expressions/IREE/IREEFunctions.cpp",
-        "src/pybammsolvers/idaklu/Expressions/IREE/IREEFunctions.hpp",
-        "src/pybammsolvers/idaklu/Expressions/IREE/iree_jit.cpp",
-        "src/pybammsolvers/idaklu/Expressions/IREE/iree_jit.hpp",
-        "src/pybammsolvers/idaklu/Expressions/IREE/ModuleParser.cpp",
-        "src/pybammsolvers/idaklu/Expressions/IREE/ModuleParser.hpp",
-        "src/pybammsolvers/idaklu/idaklu_solver.hpp",
-        "src/pybammsolvers/idaklu/IDAKLUSolver.cpp",
-        "src/pybammsolvers/idaklu/IDAKLUSolver.hpp",
-        "src/pybammsolvers/idaklu/IDAKLUSolverOpenMP.inl",
-        "src/pybammsolvers/idaklu/IDAKLUSolverOpenMP.hpp",
-        "src/pybammsolvers/idaklu/IDAKLUSolverOpenMP_solvers.cpp",
-        "src/pybammsolvers/idaklu/IDAKLUSolverOpenMP_solvers.hpp",
-        "src/pybammsolvers/idaklu/sundials_functions.inl",
-        "src/pybammsolvers/idaklu/sundials_functions.hpp",
-        "src/pybammsolvers/idaklu/IdakluJax.cpp",
-        "src/pybammsolvers/idaklu/IdakluJax.hpp",
-        "src/pybammsolvers/idaklu/common.hpp",
-        "src/pybammsolvers/idaklu/common.cpp",
-        "src/pybammsolvers/idaklu/Solution.cpp",
-        "src/pybammsolvers/idaklu/Solution.hpp",
-        "src/pybammsolvers/idaklu/Options.hpp",
-        "src/pybammsolvers/idaklu/Options.cpp",
+        "src/pybammsolvers/idaklu_source/Expressions/Expressions.hpp",
+        "src/pybammsolvers/idaklu_source/Expressions/Base/Expression.hpp",
+        "src/pybammsolvers/idaklu_source/Expressions/Base/ExpressionSet.hpp",
+        "src/pybammsolvers/idaklu_source/Expressions/Base/ExpressionTypes.hpp",
+        "src/pybammsolvers/idaklu_source/Expressions/Base/ExpressionSparsity.hpp",
+        "src/pybammsolvers/idaklu_source/Expressions/Casadi/CasadiFunctions.cpp",
+        "src/pybammsolvers/idaklu_source/Expressions/Casadi/CasadiFunctions.hpp",
+        "src/pybammsolvers/idaklu_source/Expressions/IREE/IREEBaseFunction.hpp",
+        "src/pybammsolvers/idaklu_source/Expressions/IREE/IREEFunction.hpp",
+        "src/pybammsolvers/idaklu_source/Expressions/IREE/IREEFunctions.cpp",
+        "src/pybammsolvers/idaklu_source/Expressions/IREE/IREEFunctions.hpp",
+        "src/pybammsolvers/idaklu_source/Expressions/IREE/iree_jit.cpp",
+        "src/pybammsolvers/idaklu_source/Expressions/IREE/iree_jit.hpp",
+        "src/pybammsolvers/idaklu_source/Expressions/IREE/ModuleParser.cpp",
+        "src/pybammsolvers/idaklu_source/Expressions/IREE/ModuleParser.hpp",
+        "src/pybammsolvers/idaklu_source/idaklu_solver.hpp",
+        "src/pybammsolvers/idaklu_source/IDAKLUSolver.cpp",
+        "src/pybammsolvers/idaklu_source/IDAKLUSolver.hpp",
+        "src/pybammsolvers/idaklu_source/IDAKLUSolverOpenMP.inl",
+        "src/pybammsolvers/idaklu_source/IDAKLUSolverOpenMP.hpp",
+        "src/pybammsolvers/idaklu_source/IDAKLUSolverOpenMP_solvers.cpp",
+        "src/pybammsolvers/idaklu_source/IDAKLUSolverOpenMP_solvers.hpp",
+        "src/pybammsolvers/idaklu_source/sundials_functions.inl",
+        "src/pybammsolvers/idaklu_source/sundials_functions.hpp",
+        "src/pybammsolvers/idaklu_source/IdakluJax.cpp",
+        "src/pybammsolvers/idaklu_source/IdakluJax.hpp",
+        "src/pybammsolvers/idaklu_source/common.hpp",
+        "src/pybammsolvers/idaklu_source/common.cpp",
+        "src/pybammsolvers/idaklu_source/Solution.cpp",
+        "src/pybammsolvers/idaklu_source/Solution.hpp",
+        "src/pybammsolvers/idaklu_source/Options.hpp",
+        "src/pybammsolvers/idaklu_source/Options.cpp",
         "src/pybammsolvers/idaklu.cpp",
     ],
 )

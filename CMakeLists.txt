@@ -48,8 +48,8 @@ set(IDAKLU_EXPR_CASADI_SOURCE_FILES "")
 if(${PYBAMM_IDAKLU_EXPR_CASADI} STREQUAL "ON" )
   add_compile_definitions(CASADI_ENABLE)
   set(IDAKLU_EXPR_CASADI_SOURCE_FILES
-    src/pybammsolvers/idaklu/Expressions/Casadi/CasadiFunctions.cpp
-    src/pybammsolvers/idaklu/Expressions/Casadi/CasadiFunctions.hpp
+    src/pybammsolvers/idaklu_source/Expressions/Casadi/CasadiFunctions.cpp
+    src/pybammsolvers/idaklu_source/Expressions/Casadi/CasadiFunctions.hpp
   )
 endif()
 
@@ -65,12 +65,12 @@ if(${PYBAMM_IDAKLU_EXPR_IREE} STREQUAL "ON" )
   add_compile_definitions(IREE_ENABLE)
   # Source file list
   set(IDAKLU_EXPR_IREE_SOURCE_FILES
-    src/pybammsolvers/idaklu/Expressions/IREE/iree_jit.cpp
-    src/pybammsolvers/idaklu/Expressions/IREE/iree_jit.hpp
-    src/pybammsolvers/idaklu/Expressions/IREE/IREEFunctions.cpp
-    src/pybammsolvers/idaklu/Expressions/IREE/IREEFunctions.hpp
-    src/pybammsolvers/idaklu/Expressions/IREE/ModuleParser.cpp
-    src/pybammsolvers/idaklu/Expressions/IREE/ModuleParser.hpp
+    src/pybammsolvers/idaklu_source/Expressions/IREE/iree_jit.cpp
+    src/pybammsolvers/idaklu_source/Expressions/IREE/iree_jit.hpp
+    src/pybammsolvers/idaklu_source/Expressions/IREE/IREEFunctions.cpp
+    src/pybammsolvers/idaklu_source/Expressions/IREE/IREEFunctions.hpp
+    src/pybammsolvers/idaklu_source/Expressions/IREE/ModuleParser.cpp
+    src/pybammsolvers/idaklu_source/Expressions/IREE/ModuleParser.hpp
   )
 endif()
 
@@ -79,28 +79,28 @@ pybind11_add_module(idaklu
   # pybind11 interface
   src/pybammsolvers/idaklu.cpp
   # IDAKLU solver (SUNDIALS)
-  src/pybammsolvers/idaklu/idaklu_solver.hpp
-  src/pybammsolvers/idaklu/IDAKLUSolver.cpp
-  src/pybammsolvers/idaklu/IDAKLUSolver.hpp
-  src/pybammsolvers/idaklu/IDAKLUSolverOpenMP.inl
-  src/pybammsolvers/idaklu/IDAKLUSolverOpenMP.hpp
-  src/pybammsolvers/idaklu/IDAKLUSolverOpenMP_solvers.cpp
-  src/pybammsolvers/idaklu/IDAKLUSolverOpenMP_solvers.hpp
-  src/pybammsolvers/idaklu/sundials_functions.inl
-  src/pybammsolvers/idaklu/sundials_functions.hpp
-  src/pybammsolvers/idaklu/IdakluJax.cpp
-  src/pybammsolvers/idaklu/IdakluJax.hpp
-  src/pybammsolvers/idaklu/common.hpp
-  src/pybammsolvers/idaklu/common.cpp
-  src/pybammsolvers/idaklu/Solution.cpp
-  src/pybammsolvers/idaklu/Solution.hpp
-  src/pybammsolvers/idaklu/Options.hpp
-  src/pybammsolvers/idaklu/Options.cpp
+  src/pybammsolvers/idaklu_source/idaklu_solver.hpp
+  src/pybammsolvers/idaklu_source/IDAKLUSolver.cpp
+  src/pybammsolvers/idaklu_source/IDAKLUSolver.hpp
+  src/pybammsolvers/idaklu_source/IDAKLUSolverOpenMP.inl
+  src/pybammsolvers/idaklu_source/IDAKLUSolverOpenMP.hpp
+  src/pybammsolvers/idaklu_source/IDAKLUSolverOpenMP_solvers.cpp
+  src/pybammsolvers/idaklu_source/IDAKLUSolverOpenMP_solvers.hpp
+  src/pybammsolvers/idaklu_source/sundials_functions.inl
+  src/pybammsolvers/idaklu_source/sundials_functions.hpp
+  src/pybammsolvers/idaklu_source/IdakluJax.cpp
+  src/pybammsolvers/idaklu_source/IdakluJax.hpp
+  src/pybammsolvers/idaklu_source/common.hpp
+  src/pybammsolvers/idaklu_source/common.cpp
+  src/pybammsolvers/idaklu_source/Solution.cpp
+  src/pybammsolvers/idaklu_source/Solution.hpp
+  src/pybammsolvers/idaklu_source/Options.hpp
+  src/pybammsolvers/idaklu_source/Options.cpp
   # IDAKLU expressions / function evaluation [abstract]
-  src/pybammsolvers/idaklu/Expressions/Expressions.hpp
-  src/pybammsolvers/idaklu/Expressions/Base/Expression.hpp
-  src/pybammsolvers/idaklu/Expressions/Base/ExpressionSet.hpp
-  src/pybammsolvers/idaklu/Expressions/Base/ExpressionTypes.hpp
+  src/pybammsolvers/idaklu_source/Expressions/Expressions.hpp
+  src/pybammsolvers/idaklu_source/Expressions/Base/Expression.hpp
+  src/pybammsolvers/idaklu_source/Expressions/Base/ExpressionSet.hpp
+  src/pybammsolvers/idaklu_source/Expressions/Base/ExpressionTypes.hpp
   # IDAKLU expressions - concrete implementations
   ${IDAKLU_EXPR_CASADI_SOURCE_FILES}
   ${IDAKLU_EXPR_IREE_SOURCE_FILES}
