@@ -1,6 +1,9 @@
 name: Build and publish package to PyPI
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - "main"
 
 # Set options available for all jobs that use cibuildwheel
 env:
@@ -21,10 +24,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
-        name: Check out PyBaMM repository
 
       - uses: actions/setup-python@v5
-        name: Set up Python
         with:
           python-version: 3.11
 
@@ -34,7 +35,7 @@ jobs:
           CIBW_ARCHS_LINUX: x86_64
           CIBW_BEFORE_ALL_LINUX: >
             yum -y install openblas-devel lapack-devel &&
-            bash install_sundials.sh 6.0.3 6.5.0
+            bash install_sundials.sh
           CIBW_BEFORE_BUILD_LINUX: python -m pip install cmake casadi setuptools wheel
           CIBW_REPAIR_WHEEL_COMMAND_LINUX: auditwheel repair -w {dest_dir} {wheel}
           CIBW_TEST_EXTRAS: "dev"
@@ -43,7 +44,7 @@ jobs:
             python -m pytest -m cibw {project}/tests
 
       - name: Upload wheels for Linux
-        uses: actions/upload-artifact@v4.4.0
+        uses: actions/upload-artifact@v4
         with:
           name: wheels_manylinux
           path: ./wheelhouse/*.whl
@@ -63,9 +64,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
-      - name: Clone pybind11 repo (no history)
-        run: git clone --depth 1 --branch v2.12.0 https://github.com/pybind/pybind11.git -c advice.detachedHead=false
 
       - name: Install cibuildwheel
         run: python -m pip install cibuildwheel
@@ -133,11 +131,11 @@ jobs:
 
             # Can't download LLVM-OpenMP directly, use conda/mamba and set environment variables
             brew install miniforge
-            mamba create -n pybamm-dev $OPENMP_URL
+            mamba create -n pybammsolvers-dev $OPENMP_URL
             if [[ $(uname -m) == "x86_64" ]]; then
-              PREFIX="/usr/local/Caskroom/miniforge/base/envs/pybamm-dev"
+              PREFIX="/usr/local/Caskroom/miniforge/base/envs/pybammsolvers-dev"
             elif [[ $(uname -m) == "arm64" ]]; then
-              PREFIX="/opt/homebrew/Caskroom/miniforge/base/envs/pybamm-dev"
+              PREFIX="/opt/homebrew/Caskroom/miniforge/base/envs/pybammsolvers-dev"
             fi
 
             # Copy libomp.dylib from PREFIX to $HOME/.local/lib, needed for wheel repair
@@ -155,7 +153,7 @@ jobs:
             # cibuildwheel not recognising its environment variable, so set manually
             export CIBUILDWHEEL="1"
 
-            python scripts/install_KLU_Sundials.py
+            python install_KLU_Sundials.py
             python -m cibuildwheel --output-dir wheelhouse
         env:
           # 10.13 for Intel (macos-12/macos-13), 11.0 for Apple Silicon (macos-14 and macos-latest)
@@ -170,77 +168,14 @@ jobs:
               delocate-listdeps {wheel} && delocate-wheel -v -w {dest_dir} {wheel} --require-target-macos-version 11.1
               for file in {dest_dir}/*.whl; do mv "$file" "${file//macosx_11_1/macosx_11_0}"; done
             fi
-          CIBW_TEST_EXTRAS: "all,dev,jax"
+          CIBW_TEST_EXTRAS: "dev"
           CIBW_TEST_COMMAND: |
             set -e -x
-            python -c "import pybamm; print(pybamm.IDAKLUSolver())"
-            python -m pytest -m cibw {project}/tests/unit
+            python -m pytest -m cibw {project}/tests
 
       - name: Upload wheels for macOS (amd64, arm64)
-        uses: actions/upload-artifact@v4.4.0
+        uses: actions/upload-artifact@v4
         with:
           name: wheels_${{ matrix.os }}
           path: ./wheelhouse/*.whl
           if-no-files-found: error
-
-  build_sdist:
-    name: Build SDist
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: 'true'
-      - uses: actions/setup-python@v5
-        with:
-          python-version: 3.12
-
-      - name: Build SDist
-        run: pipx run build --sdist
-
-      - name: Upload SDist
-        uses: actions/upload-artifact@v4.4.0
-        with:
-          name: sdist
-          path: ./dist/*.tar.gz
-          if-no-files-found: error
-
-  publish_pypi:
-    # This job is only of value to PyBaMM and would always be skipped in forks
-    if: github.event_name != 'schedule' && github.repository == 'pybamm-team/PyBaMM'
-    name: Upload package to PyPI
-    needs: [
-      build_manylinux_wheels,
-      build_macos_wheels,
-      build_windows_wheels,
-      build_sdist
-    ]
-    runs-on: ubuntu-latest
-    environment:
-      name: pypi
-      url: https://pypi.org/p/pybamm
-    permissions:
-      id-token: write
-
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          merge-multiple: true
-
-      - name: Sanity check downloaded artifacts
-        run: ls -lA artifacts/
-
-      - name: Publish to PyPI
-        if: github.event.inputs.target == 'pypi' || github.event_name == 'release'
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: artifacts/
-
-      - name: Publish to TestPyPI
-        if: github.event.inputs.target == 'testpypi'
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: artifacts/
-          repository-url: https://test.pypi.org/legacy/

@@ -27,8 +27,8 @@ function extract {
     tar -xf $1
 }
 
-SUITESPARSE_VERSION=$1
-SUNDIALS_VERSION=$2
+SUITESPARSE_VERSION=6.0.3
+SUNDIALS_VERSION=6.5.0
 
 SUITESPARSE_ROOT_ADDR=https://github.com/DrTimothyAldenDavis/SuiteSparse/archive
 SUNDIALS_ROOT_ADDR=https://github.com/LLNL/sundials/releases/download/v$SUNDIALS_VERSION
