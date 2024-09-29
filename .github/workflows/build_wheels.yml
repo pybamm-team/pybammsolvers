@@ -1,4 +1,4 @@
-name: Build and publish package to PyPI
+name: Build wheels
 on:
   workflow_dispatch:
   pull_request:
