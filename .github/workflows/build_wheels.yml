@@ -46,7 +46,7 @@ jobs:
         run: pipx run cibuildwheel --output-dir wheelhouse
         env:
           CIBW_ENVIRONMENT: >
-            PYBAMM_USE_VCPKG=ON
+            PYBAMMSOLVERS_USE_VCPKG=ON
             VCPKG_ROOT_DIR=C:\vcpkg
             VCPKG_DEFAULT_TRIPLET=x64-windows-static-md
             VCPKG_FEATURE_FLAGS=manifests,registries

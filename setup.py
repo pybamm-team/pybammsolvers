@@ -121,7 +121,7 @@ class CMakeBuild(build_ext):
         # ---------- configuration for vcpkg on Windows ----------------------------------------
 
         build_env = os.environ
-        if os.getenv("PYBAMM_USE_VCPKG"):
+        if os.getenv("PYBAMMSOLVERS_USE_VCPKG"):
             (
                 vcpkg_root_dir,
                 vcpkg_default_triplet,
