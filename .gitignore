@@ -10,4 +10,7 @@ setup.log
 install_KLU_Sundials
 .idaklu
 build
+
+# Extra directories for local work
 workspace
+deploy
