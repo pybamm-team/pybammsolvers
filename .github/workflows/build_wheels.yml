@@ -42,14 +42,6 @@ jobs:
           cd vcpkg
           .\bootstrap-vcpkg.bat
 
-      - name: Cache packages installed through vcpkg on Windows
-        uses: actions/cache@v4
-        env:
-          cache-name: vckpg_binary_cache
-        with:
-          path: C:\Users\runneradmin\AppData\Local\vcpkg\archives
-          key: ${{ runner.os }}-build-VS2022-${{ env.cache-name }}-${{ hashFiles('vcpkg*.json') }}
-
       - name: Build wheels on Windows
         run: pipx run cibuildwheel --output-dir wheelhouse
         env:
