@@ -58,7 +58,7 @@ jobs:
           CIBW_REPAIR_WHEEL_COMMAND: delvewheel repair --add-path C:/Windows/System32 -w {dest_dir} {wheel}
           CIBW_TEST_EXTRAS: "dev"
           CIBW_TEST_COMMAND: |
-            python -m pytest {project}/tests/unit
+            python -m pytest {project}/tests
       - name: Upload Windows wheels
         uses: actions/upload-artifact@v4
         with:
