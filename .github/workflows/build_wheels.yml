@@ -106,7 +106,7 @@ jobs:
             # link libgfortran dylibs and place them in $SOLVER_LIB_PATH
             # and then change rpath for each of them
             # Note: libgcc_s.1.dylib not available on macOS arm64; skip for now
-            SOLVER_LIB_PATH=.idaklu/lib
+            SOLVER_LIB_PATH=$(pwd)/.idaklu/lib
             mkdir -p $SOLVER_LIB_PATH
             if [[ $(uname -m) == "x86_64" ]]; then
               lib_dir=$(pwd)/gfortran_installed/gfortran-darwin-x86_64-native/lib
