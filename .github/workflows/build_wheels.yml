@@ -5,12 +5,8 @@ on:
     branches:
       - "main"
 
-# Set options available for all jobs that use cibuildwheel
 env:
-  # Increase pip debugging output, equivalent to `pip -vv`
   CIBW_BUILD_VERBOSITY: 2
-  # Disable build isolation to allow pre-installing build-time dependencies.
-  # Note: CIBW_BEFORE_BUILD must be present in all jobs using cibuildwheel.
   CIBW_BUILD_FRONTEND: "pip; args: --no-build-isolation"
   # Skip PyPy and MUSL builds in any and all jobs
   CIBW_SKIP: "pp* *musllinux*"
@@ -107,23 +103,24 @@ jobs:
               export PATH=$(pwd)/gfortran_installed/gfortran-darwin-arm64-native/bin:$PATH
             fi
 
-            # link libgfortran dylibs and place them in $HOME/.local/lib
-            # and then change rpath to $HOME/.local/lib for each of them
+            # link libgfortran dylibs and place them in $SOLVER_LIB_PATH
+            # and then change rpath for each of them
             # Note: libgcc_s.1.dylib not available on macOS arm64; skip for now
-            mkdir -p $HOME/.local/lib
+            SOLVER_LIB_PATH=.idaklu/lib
+            mkdir -p $SOLVER_LIB_PATH
             if [[ $(uname -m) == "x86_64" ]]; then
               lib_dir=$(pwd)/gfortran_installed/gfortran-darwin-x86_64-native/lib
               for lib in libgfortran.5.dylib libgfortran.dylib libquadmath.0.dylib libquadmath.dylib libgcc_s.1.dylib libgcc_s.1.1.dylib; do
-                cp $lib_dir/$lib $HOME/.local/lib/
-                install_name_tool -id $HOME/.local/lib/$lib $HOME/.local/lib/$lib
-                codesign --force --sign - $HOME/.local/lib/$lib
+                cp $lib_dir/$lib $SOLVER_LIB_PATH/
+                install_name_tool -id $SOLVER_LIB_PATH/$lib $SOLVER_LIB_PATH/$lib
+                codesign --force --sign - $SOLVER_LIB_PATH/$lib
               done
             elif [[ $(uname -m) == "arm64" ]]; then
               lib_dir=$(pwd)/gfortran_installed/gfortran-darwin-arm64-native/lib
               for lib in libgfortran.5.dylib libgfortran.dylib libquadmath.0.dylib libquadmath.dylib libgcc_s.1.1.dylib; do
-                cp $lib_dir/$lib $HOME/.local/lib/
-                install_name_tool -id $HOME/.local/lib/$lib $HOME/.local/lib/$lib
-                codesign --force --sign - $HOME/.local/lib/$lib
+                cp $lib_dir/$lib $SOLVER_LIB_PATH/.
+                install_name_tool -id $SOLVER_LIB_PATH/$lib $SOLVER_LIB_PATH/$lib
+                codesign --force --sign - $SOLVER_LIB_PATH/$lib
               done
             fi
 
@@ -138,10 +135,10 @@ jobs:
               PREFIX="/opt/homebrew/Caskroom/miniforge/base/envs/pybammsolvers-dev"
             fi
 
-            # Copy libomp.dylib from PREFIX to $HOME/.local/lib, needed for wheel repair
-            cp $PREFIX/lib/libomp.dylib $HOME/.local/lib/
-            install_name_tool -id $HOME/.local/lib/libomp.dylib $HOME/.local/lib/libomp.dylib
-            codesign --force --sign - $HOME/.local/lib/libomp.dylib
+            # Copy libomp.dylib from PREFIX to $SOLVER_LIB_PATH, needed for wheel repair
+            cp $PREFIX/lib/libomp.dylib $SOLVER_LIB_PATH/.
+            install_name_tool -id $SOLVER_LIB_PATH/libomp.dylib $SOLVER_LIB_PATH/libomp.dylib
+            codesign --force --sign - $SOLVER_LIB_PATH/libomp.dylib
 
             export CC=/usr/bin/clang
             export CXX=/usr/bin/clang++
