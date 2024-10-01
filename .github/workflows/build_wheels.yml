@@ -1,5 +1,7 @@
 name: Build wheels
 on:
+  release:
+    types: [ published ]
   workflow_dispatch:
   pull_request:
     branches:
@@ -229,3 +231,55 @@ jobs:
           name: wheels_${{ matrix.os }}
           path: ./wheelhouse/*.whl
           if-no-files-found: error
+
+  build_sdist:
+    name: Build SDist
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+
+      - name: Build SDist
+        run: pipx run build --sdist
+
+      - name: Upload SDist
+        uses: actions/upload-artifact@v4.4.0
+        with:
+          name: sdist
+          path: ./dist/*.tar.gz
+          if-no-files-found: error
+
+  publish_pypi:
+    if: github.repository == 'pybamm-team/pybammsolvers'
+    name: Upload package to PyPI
+    needs: [
+      build_manylinux_wheels,
+      build_macos_wheels,
+      build_windows_wheels,
+      build_sdist
+    ]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/pybammsolvers
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Sanity check downloaded artifacts
+        run: ls -lA artifacts/
+
+      - name: Publish to PyPI
+        if: github.event_name == 'release'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: artifacts/
