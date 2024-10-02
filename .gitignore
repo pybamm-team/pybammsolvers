@@ -1,5 +1,6 @@
 .idea
 .vscode
+cmake-build-*
 *.egg-info
 __pycache__
 .venv
