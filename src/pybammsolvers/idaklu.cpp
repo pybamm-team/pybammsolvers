@@ -8,15 +8,15 @@
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
 
-#include "idaklu/idaklu_solver.hpp"
-#include "idaklu/observe.hpp"
-#include "idaklu/IDAKLUSolverGroup.hpp"
-#include "idaklu/IdakluJax.hpp"
-#include "idaklu/common.hpp"
-#include "idaklu/Expressions/Casadi/CasadiFunctions.hpp"
+#include "idaklu_source/idaklu_solver.hpp"
+#include "idaklu_source/observe.hpp"
+#include "idaklu_source/IDAKLUSolverGroup.hpp"
+#include "idaklu_source/IdakluJax.hpp"
+#include "idaklu_source/common.hpp"
+#include "idaklu_source/Expressions/Casadi/CasadiFunctions.hpp"
 
 #ifdef IREE_ENABLE
-#include "idaklu/Expressions/IREE/IREEFunctions.hpp"
+#include "idaklu_source/Expressions/IREE/IREEFunctions.hpp"
 #endif
 
 
