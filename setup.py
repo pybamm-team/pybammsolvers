@@ -269,6 +269,8 @@ idaklu_ext = Extension(
         "src/pybammsolvers/idaklu_source/Solution.hpp",
         "src/pybammsolvers/idaklu_solver/SolutionData.cpp",
         "src/pybammsolvers/idaklu_solver/SolutionData.hpp",
+        "src/pybammsolvers/idaklu_solver/observe.cpp",
+        "src/pybammsolvers/idaklu_solver/observe.hpp",
         "src/pybammsolvers/idaklu_source/Options.hpp",
         "src/pybammsolvers/idaklu_source/Options.cpp",
         "src/pybammsolvers/idaklu.cpp",
