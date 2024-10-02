@@ -98,8 +98,8 @@ pybind11_add_module(idaklu
   src/pybammsolvers/idaklu_source/Solution.hpp
   src/pybammsolvers/idaklu_source/SolutionData.cpp
   src/pybammsolvers/idaklu_source/SolutionData.hpp
-  src/pybammsolvers/idaklu_solver/observe.cpp
-  src/pybammsolvers/idaklu_solver/observe.hpp
+  src/pybammsolvers/idaklu_source/observe.cpp
+  src/pybammsolvers/idaklu_source/observe.hpp
   src/pybammsolvers/idaklu_source/Options.hpp
   src/pybammsolvers/idaklu_source/Options.cpp
   # IDAKLU expressions / function evaluation [abstract]
