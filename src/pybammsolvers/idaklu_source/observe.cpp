@@ -1,4 +1,6 @@
 #include "observe.hpp"
+#include <unordered_map>
+
 
 int _setup_len_spatial(const std::vector<int>& shape) {
     // Calculate the product of all dimensions except the last (spatial dimensions)
