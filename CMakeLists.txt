@@ -2,10 +2,6 @@ cmake_minimum_required(VERSION 3.13)
 cmake_policy(SET CMP0074 NEW)
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
-if(DEFINED Python_EXECUTABLE)
-  set(PYTHON_EXECUTABLE ${Python_EXECUTABLE})
-endif()
-
 if(DEFINED ENV{VCPKG_ROOT_DIR} AND NOT DEFINED VCPKG_ROOT_DIR)
   set(VCPKG_ROOT_DIR "$ENV{VCPKG_ROOT_DIR}"
     CACHE STRING "Vcpkg root directory")
@@ -122,7 +118,7 @@ endif()
 
 
 execute_process(
-    COMMAND "${PYTHON_EXECUTABLE}" -c
+    COMMAND "${Python_EXECUTABLE}" -c
     "import os; import sysconfig; print(os.path.join(sysconfig.get_path('purelib'), 'casadi', 'cmake'))"
     OUTPUT_VARIABLE CASADI_DIR
     OUTPUT_STRIP_TRAILING_WHITESPACE)

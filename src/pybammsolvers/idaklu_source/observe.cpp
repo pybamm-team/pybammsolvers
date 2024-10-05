@@ -314,7 +314,7 @@ const np_array_realtype observe(
     const bool is_f_contiguous,
     const vector<int>& shape
 ) {
-    const int size_spatial = _setup_len_spatial(shape);
+    const int size_spatial = setup_len_spatial(shape);
     const auto& funcs = setup_casadi_funcs(strings);
     py::array_t<realtype, py::array::f_style> out_array(shape);
     auto entries = out_array.mutable_data();

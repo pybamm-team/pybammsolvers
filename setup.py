@@ -95,7 +95,7 @@ class CMakeBuild(build_ext):
         idaklu_expr_iree = os.getenv("PYBAMM_IDAKLU_EXPR_IREE", "OFF")
         cmake_args = [
             f"-DCMAKE_BUILD_TYPE={build_type}",
-            f"-DPYTHON_EXECUTABLE={sys.executable}",
+            f"-DPython_EXECUTABLE={sys.executable}",
             "-DUSE_PYTHON_CASADI={}".format("TRUE" if use_python_casadi else "FALSE"),
             f"-DPYBAMM_IDAKLU_EXPR_CASADI={idaklu_expr_casadi}",
             f"-DPYBAMM_IDAKLU_EXPR_IREE={idaklu_expr_iree}",
