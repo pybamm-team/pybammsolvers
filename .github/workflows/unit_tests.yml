@@ -43,7 +43,8 @@ jobs:
           NONINTERACTIVE: 1
         run: |
           brew analytics off
-          brew install libomp gfortran
+          brew install libomp
+          brew reinstall gcc
           pip install nox
 
       - name: Build and test
