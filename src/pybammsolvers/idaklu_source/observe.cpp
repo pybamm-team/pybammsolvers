@@ -1,6 +1,8 @@
 #include "observe.hpp"
+#include <unordered_map>
 
-int _setup_len_spatial(const std::vector<int>& shape) {
+
+int setup_len_spatial(const std::vector<int>& shape) {
     // Calculate the product of all dimensions except the last (spatial dimensions)
     int size_spatial = 1;
     for (size_t i = 0; i < shape.size() - 1; ++i) {
@@ -294,7 +296,7 @@ const np_array_realtype observe_hermite_interp(
     const vector<std::string>& strings,
     const vector<int>& shape
 ) {
-    const int size_spatial = _setup_len_spatial(shape);
+    const int size_spatial = setup_len_spatial(shape);
     const auto& funcs = setup_casadi_funcs(strings);
     py::array_t<realtype, py::array::f_style> out_array(shape);
     auto entries = out_array.mutable_data();
@@ -312,7 +314,7 @@ const np_array_realtype observe(
     const bool is_f_contiguous,
     const vector<int>& shape
 ) {
-    const int size_spatial = _setup_len_spatial(shape);
+    const int size_spatial = setup_len_spatial(shape);
     const auto& funcs = setup_casadi_funcs(strings);
     py::array_t<realtype, py::array::f_style> out_array(shape);
     auto entries = out_array.mutable_data();
