@@ -25,6 +25,8 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest",
+    "setuptools",
+    "wheel",
 ]
 
 [tool.setuptools.packages.find]

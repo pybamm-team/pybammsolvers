@@ -180,7 +180,7 @@ class CMakeBuild(build_ext):
 
 
 class CustomInstall(install):
-    """A custom install command to add 2 build options"""
+    """A custom installation command to add 2 build options"""
 
     user_options = [
         *install.user_options,
@@ -208,7 +208,7 @@ class CustomInstall(install):
 
 
 class bdist_wheel(orig.bdist_wheel):
-    """A custom install command to add 2 build options"""
+    """A custom installation command to add 2 build options"""
 
     user_options = [
         *orig.bdist_wheel.user_options,
