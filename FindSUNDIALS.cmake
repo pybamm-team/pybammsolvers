@@ -75,7 +75,7 @@ foreach(LIB ${SUNDIALS_WANT_COMPONENTS})
             Lib
 	PATHS
 	    ${SUNDIALS_ROOT}
-      ${INSTALL_DIR}
+            ${INSTALL_DIR}
     )
 
     set(SUNDIALS_${LIB}_FOUND FALSE)

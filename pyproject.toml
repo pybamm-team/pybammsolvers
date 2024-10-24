@@ -17,10 +17,16 @@ requires-python = ">=3.9,<3.13"
 license = { file = "LICENSE" }
 version = "0.0.1"
 dynamic = ["readme"]
-dependencies = ["casadi", "numpy<2.0"]
+dependencies = [
+    "casadi",
+    "numpy<2.0"
+]
 
 [project.optional-dependencies]
-dev = ["pytest", "scikit-build-core"]
+dev = [
+    "pytest",
+    "scikit-build-core",
+]
 
 [tool.scikit_build]
 minimum-version = "build-system.requires"
