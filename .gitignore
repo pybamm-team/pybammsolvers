@@ -11,6 +11,8 @@ setup.log
 install_KLU_Sundials
 .idaklu
 build
+dist
+*.so
 
 # Extra directories for local work
 workspace

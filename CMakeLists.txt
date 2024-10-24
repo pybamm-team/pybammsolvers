@@ -36,14 +36,17 @@ endif()
 # casadi seems to compile without the newer versions of std::string
 add_compile_definitions(_GLIBCXX_USE_CXX11_ABI=0)
 
-if(NOT PYBIND11_DIR)
-  set(PYBIND11_DIR pybind11)
-endif()
-add_subdirectory(${PYBIND11_DIR})
+find_package(pybind11 CONFIG REQUIRED)
+
+find_package(Python COMPONENTS Interpreter Development.Module REQUIRED)
 
 # Check Casadi build flag
 if(NOT DEFINED PYBAMM_IDAKLU_EXPR_CASADI)
-  set(PYBAMM_IDAKLU_EXPR_CASADI ON)
+  if(DEFINED ENV{PYBAMM_IDAKLU_EXPR_CASADI})
+    set(PYBAMM_IDAKLU_EXPR_CASADI "$ENV{PYBAMM_IDAKLU_EXPR_CASADI}")
+  else()
+    set(PYBAMM_IDAKLU_EXPR_CASADI ON)
+  endif()
 endif()
 message("PYBAMM_IDAKLU_EXPR_CASADI: ${PYBAMM_IDAKLU_EXPR_CASADI}")
 
@@ -59,7 +62,11 @@ endif()
 
 # Check IREE build flag
 if(NOT DEFINED PYBAMM_IDAKLU_EXPR_IREE)
-  set(PYBAMM_IDAKLU_EXPR_IREE OFF)
+  if(DEFINED ENV{PYBAMM_IDAKLU_EXPR_IREE})
+    set(PYBAMM_IDAKLU_EXPR_IREE "$ENV{PYBAMM_IDAKLU_EXPR_IREE}")
+  else()
+    set(PYBAMM_IDAKLU_EXPR_IREE OFF)
+  endif()
 endif()
 message("PYBAMM_IDAKLU_EXPR_IREE: ${PYBAMM_IDAKLU_EXPR_IREE}")
 
@@ -116,38 +123,39 @@ pybind11_add_module(idaklu
   ${IDAKLU_EXPR_IREE_SOURCE_FILES}
 )
 
-if (NOT DEFINED USE_PYTHON_CASADI)
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+  set(USE_PYTHON_CASADI FALSE)
+else()
   set(USE_PYTHON_CASADI TRUE)
 endif()
 
-
-execute_process(
-    COMMAND "${PYTHON_EXECUTABLE}" -c
-    "import os; import sysconfig; print(os.path.join(sysconfig.get_path('purelib'), 'casadi', 'cmake'))"
-    OUTPUT_VARIABLE CASADI_DIR
-    OUTPUT_STRIP_TRAILING_WHITESPACE)
-
-if (CASADI_DIR)
-  file(TO_CMAKE_PATH ${CASADI_DIR} CASADI_DIR)
-  message("Found Python casadi path: ${CASADI_DIR}")
+# Check if CASADI_PATH is set in the environment
+if(NOT DEFINED ENV{CASADI_PATH})
+  execute_process(
+      COMMAND "${PYTHON_EXECUTABLE}" -c
+      "import os; import sysconfig; print(os.path.join(sysconfig.get_path('purelib'), 'casadi', 'cmake'))"
+      OUTPUT_VARIABLE CASADI_DIR
+      OUTPUT_STRIP_TRAILING_WHITESPACE)
 else()
-  message(FATAL_ERROR "Did not find casadi path}")
+  set(CASADI_DIR $ENV{CASADI_PATH})
+  message("it is alr set: ${CASADI_DIR}")
+endif()
+
+if(CASADI_DIR)
+  file(TO_CMAKE_PATH ${CASADI_DIR} CASADI_DIR)
+  message("Found CasADi path: ${CASADI_DIR}")
+else()
+  message(FATAL_ERROR "Did not find CasADi path")
 endif()
 
 if(${USE_PYTHON_CASADI})
-  message("Trying to link against Python casadi package in ${CASADI_DIR}")
+  message("Trying to link against Python CasADi package in ${CASADI_DIR}")
   find_package(casadi CONFIG PATHS ${CASADI_DIR} REQUIRED NO_DEFAULT_PATH)
 else()
-  message("Trying to link against any casadi package apart from the Python one")
+  message("Trying to link against any CasADi package apart from the Python one")
   set(CMAKE_IGNORE_PATH "${CASADI_DIR}/cmake")
   find_package(casadi CONFIG REQUIRED)
 endif()
-
-set_target_properties(
-  idaklu PROPERTIES
-  INSTALL_RPATH "${CASADI_DIR}"
-  INSTALL_RPATH_USE_LINK_PATH TRUE
-)
 
 # openmp
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
@@ -167,6 +175,14 @@ if(OpenMP_CXX_FOUND)
 endif()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR})
+
+if(NOT DEFINED ENV{INSTALL_DIR})
+  set(INSTALL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/.idaklu")
+else()
+  set(INSTALL_DIR $ENV{INSTALL_DIR})
+endif()
+message(STATUS "Library path is set: ${INSTALL_DIR}")
+
 # Sundials
 find_package(SUNDIALS REQUIRED)
 message("SUNDIALS found in ${SUNDIALS_INCLUDE_DIR}: ${SUNDIALS_LIBRARIES}")
@@ -185,6 +201,21 @@ endif()
 include_directories(${SuiteSparse_INCLUDE_DIRS})
 target_link_libraries(idaklu PRIVATE ${SuiteSparse_LIBRARIES})
 
+if(DEFINED ENV{CIBUILDWHEEL} AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  set(SUNDIALS_LIBRARY_DIR "${INSTALL_DIR}/lib64")
+  set(SUITESPARSE_LIBRARY_DIR "${INSTALL_DIR}/lib64")
+else()
+  set(SUNDIALS_LIBRARY_DIR "${INSTALL_DIR}/lib")
+  set(SUITESPARSE_LIBRARY_DIR "${INSTALL_DIR}/lib")
+endif()
+
+set_target_properties(idaklu PROPERTIES
+  INSTALL_RPATH "${CASADI_DIR};${SUNDIALS_LIBRARY_DIR};${SUITESPARSE_LIBRARY_DIR}"
+  INSTALL_RPATH_USE_LINK_PATH TRUE
+  BUILD_RPATH "${CASADI_DIR};${SUNDIALS_LIBRARY_DIR};${SUITESPARSE_LIBRARY_DIR}"
+)
+message("NOTE: RPATHS linking SUNDIALS, SuiteSparse and casADi are set")
+
 # IREE (MLIR compiler and runtime library) build settings
 if(${PYBAMM_IDAKLU_EXPR_IREE} STREQUAL "ON" )
   set(IREE_BUILD_COMPILER ON)
@@ -196,4 +227,10 @@ if(${PYBAMM_IDAKLU_EXPR_IREE} STREQUAL "ON" )
   target_compile_options(idaklu PRIVATE ${IREE_DEFAULT_COPTS})
   target_link_libraries(idaklu PRIVATE iree_compiler_bindings_c_loader)
   target_link_libraries(idaklu PRIVATE iree_runtime_runtime)
+endif()
+
+if(DEFINED ENV{CIBUILDWHEEL})
+  install(TARGETS idaklu DESTINATION "pybammsolvers")
+else()
+  install(TARGETS idaklu DESTINATION "${CMAKE_CURRENT_SOURCE_DIR}/src/pybammsolvers")
 endif()
