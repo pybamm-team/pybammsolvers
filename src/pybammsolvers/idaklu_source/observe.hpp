@@ -2,7 +2,6 @@
 #define PYBAMM_CREATE_OBSERVE_HPP
 
 #include <memory>
-#include <unordered_map>
 #include <string>
 #include "common.hpp"
 #include <casadi/core/function.hpp>
@@ -42,6 +41,6 @@ const np_array_realtype observe(
 
 const vector<std::shared_ptr<const casadi::Function>> setup_casadi_funcs(const vector<std::string>& strings);
 
-int _setup_len_spatial(const vector<int>& shape);
+int setup_len_spatial(const vector<int>& shape);
 
 #endif // PYBAMM_CREATE_OBSERVE_HPP
