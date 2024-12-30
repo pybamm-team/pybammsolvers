@@ -120,8 +120,7 @@ jobs:
             python install_KLU_Sundials.py
             python -m cibuildwheel --output-dir wheelhouse
         env:
-          # 10.13 for Intel (macos-13), 11.0 for Apple Silicon (macos-14 and macos-latest)
-          #MACOSX_DEPLOYMENT_TARGET: ${{ matrix.os == 'macos-14' && '11.0' || '10.13' }}
+          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.os == 'macos-14' && '14.0' || '13.0' }}
           CIBW_ARCHS_MACOS: auto
           CIBW_BEFORE_BUILD: python -m pip install cmake casadi setuptools delocate
           CIBW_REPAIR_WHEEL_COMMAND: |
