@@ -114,17 +114,104 @@ jobs:
       - name: Build wheels on macOS
         shell: bash
         run: |
-            brew analytics off
-            brew install libomp
-            brew reinstall gcc
+            set -e -x
+
+            # Set LLVM-OpenMP URL
+            if [[ $(uname -m) == "x86_64" ]]; then
+              OPENMP_URL="https://anaconda.org/conda-forge/llvm-openmp/11.1.0/download/osx-64/llvm-openmp-11.1.0-hda6cdc1_1.tar.bz2"
+            elif [[ $(uname -m) == "arm64" ]]; then
+              OPENMP_URL="https://anaconda.org/conda-forge/llvm-openmp/11.1.0/download/osx-arm64/llvm-openmp-11.1.0-hf3c4609_1.tar.bz2"
+            fi
+
+            # Download gfortran with proper macOS minimum version (11.0)
+            if [[ $(uname -m) == "x86_64" ]]; then
+              GFORTRAN_URL="https://github.com/isuruf/gcc/releases/download/gcc-11.3.0-2/gfortran-darwin-x86_64-native.tar.gz"
+              KNOWN_SHA256="981367dd0ad4335613e91bbee453d60b6669f5d7e976d18c7bdb7f1966f26ae4 gfortran.tar.gz"
+            elif [[ $(uname -m) == "arm64" ]]; then
+              GFORTRAN_URL="https://github.com/isuruf/gcc/releases/download/gcc-11.3.0-2/gfortran-darwin-arm64-native.tar.gz"
+              KNOWN_SHA256="84364eee32ba843d883fb8124867e2bf61a0cd73b6416d9897ceff7b85a24604 gfortran.tar.gz"
+            fi
+
+            # Validate gfortran tarball
+            curl -L $GFORTRAN_URL -o gfortran.tar.gz
+            if ! echo "$KNOWN_SHA256" != "$(shasum --algorithm 256 gfortran.tar.gz)"; then
+              echo "Checksum failed"
+              exit 1
+            fi
+
+            mkdir -p gfortran_installed
+            tar -xv -C gfortran_installed/ -f gfortran.tar.gz
+
+            if [[ $(uname -m) == "x86_64" ]]; then
+              export FC=$(pwd)/gfortran_installed/gfortran-darwin-x86_64-native/bin/gfortran
+              export PATH=$(pwd)/gfortran_installed/gfortran-darwin-x86_64-native/bin:$PATH
+            elif [[ $(uname -m) == "arm64" ]]; then
+              export FC=$(pwd)/gfortran_installed/gfortran-darwin-arm64-native/bin/gfortran
+              export PATH=$(pwd)/gfortran_installed/gfortran-darwin-arm64-native/bin:$PATH
+            fi
+
+            # link libgfortran dylibs and place them in $SOLVER_LIB_PATH
+            # and then change rpath for each of them
+            # Note: libgcc_s.1.dylib not available on macOS arm64; skip for now
+            SOLVER_LIB_PATH=$(pwd)/.idaklu/lib
+            mkdir -p $SOLVER_LIB_PATH
+            if [[ $(uname -m) == "x86_64" ]]; then
+              lib_dir=$(pwd)/gfortran_installed/gfortran-darwin-x86_64-native/lib
+              for lib in libgfortran.5.dylib libgfortran.dylib libquadmath.0.dylib libquadmath.dylib libgcc_s.1.dylib libgcc_s.1.1.dylib; do
+                cp $lib_dir/$lib $SOLVER_LIB_PATH/
+                install_name_tool -id $SOLVER_LIB_PATH/$lib $SOLVER_LIB_PATH/$lib
+                codesign --force --sign - $SOLVER_LIB_PATH/$lib
+              done
+            elif [[ $(uname -m) == "arm64" ]]; then
+              lib_dir=$(pwd)/gfortran_installed/gfortran-darwin-arm64-native/lib
+              for lib in libgfortran.5.dylib libgfortran.dylib libquadmath.0.dylib libquadmath.dylib libgcc_s.1.1.dylib; do
+                cp $lib_dir/$lib $SOLVER_LIB_PATH/.
+                install_name_tool -id $SOLVER_LIB_PATH/$lib $SOLVER_LIB_PATH/$lib
+                codesign --force --sign - $SOLVER_LIB_PATH/$lib
+              done
+            fi
+
+            export SDKROOT=${SDKROOT:-$(xcrun --show-sdk-path)}
+
+            # Can't download LLVM-OpenMP directly, use conda and set environment variables
+            brew install miniforge
+            conda create -n pybammsolvers-dev $OPENMP_URL
+            if [[ $(uname -m) == "x86_64" ]]; then
+              PREFIX="/usr/local/Caskroom/miniforge/base/envs/pybammsolvers-dev"
+            elif [[ $(uname -m) == "arm64" ]]; then
+              PREFIX="/opt/homebrew/Caskroom/miniforge/base/envs/pybammsolvers-dev"
+            fi
+
+            # Copy libomp.dylib from PREFIX to $SOLVER_LIB_PATH, needed for wheel repair
+            cp $PREFIX/lib/libomp.dylib $SOLVER_LIB_PATH/.
+            install_name_tool -id $SOLVER_LIB_PATH/libomp.dylib $SOLVER_LIB_PATH/libomp.dylib
+            codesign --force --sign - $SOLVER_LIB_PATH/libomp.dylib
+
+            export CC=/usr/bin/clang
+            export CXX=/usr/bin/clang++
+            export CPPFLAGS="$CPPFLAGS -Xpreprocessor -fopenmp"
+            export CFLAGS="$CFLAGS -I$PREFIX/include"
+            export CXXFLAGS="$CXXFLAGS -I$PREFIX/include"
+            export LDFLAGS="$LDFLAGS -L$PREFIX/lib -lomp"
+
+            # cibuildwheel not recognising its environment variable, so set manually
+            export CIBUILDWHEEL="1"
+
             python install_KLU_Sundials.py
             python -m cibuildwheel --output-dir wheelhouse
         env:
-          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.os == 'macos-14' && '14.0' || '13.0' }}
+          # 10.13 for Intel (macos-13), 11.0 for Apple Silicon (macos-14 and macos-latest)
+          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.os == 'macos-14' && '11.0' || '10.13' }}
           CIBW_ARCHS_MACOS: auto
           CIBW_BEFORE_BUILD: python -m pip install cmake casadi setuptools delocate
           CIBW_REPAIR_WHEEL_COMMAND: |
-            delocate-listdeps {wheel} && delocate-wheel -v -w {dest_dir} {wheel}
+            if [[ $(uname -m) == "x86_64" ]]; then
+              delocate-listdeps {wheel} && delocate-wheel -v -w {dest_dir} {wheel}
+            elif [[ $(uname -m) == "arm64" ]]; then
+              # Use higher macOS target for now since casadi/libc++.1.0.dylib is still not fixed
+              delocate-listdeps {wheel} && delocate-wheel -v -w {dest_dir} {wheel} --require-target-macos-version 11.1
+              for file in {dest_dir}/*.whl; do mv "$file" "${file//macosx_11_1/macosx_11_0}"; done
+            fi
           CIBW_TEST_EXTRAS: "dev"
           CIBW_TEST_COMMAND: |
             set -e -x
