@@ -61,7 +61,7 @@ jobs:
           if-no-files-found: error
 
   build_manylinux_wheels:
-    name: Wheels (linux-amd64)
+    name: Wheels (linux)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
