@@ -68,6 +68,10 @@ jobs:
         with:
           submodules: 'true'
 
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: all
+
       - uses: actions/setup-python@v5
         with:
           python-version: 3.11
@@ -75,7 +79,7 @@ jobs:
       - name: Build wheels on Linux
         run: pipx run cibuildwheel --output-dir wheelhouse
         env:
-          CIBW_ARCHS_LINUX: x86_64
+          CIBW_ARCHS_LINUX: "x86_64 aarch64"
           CIBW_BEFORE_ALL_LINUX: >
             yum -y install openblas-devel lapack-devel &&
             bash install_sundials.sh
