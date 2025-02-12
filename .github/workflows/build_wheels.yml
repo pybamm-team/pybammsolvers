@@ -16,7 +16,7 @@ env:
 
 jobs:
   build_windows_wheels:
-    name: Wheels (windows-latest)
+    name: Wheels (Windows)
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
