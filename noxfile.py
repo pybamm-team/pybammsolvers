@@ -132,21 +132,3 @@ def run_unit(session):
             silent=False,
         )
     session.run("pytest", "tests")
-
-
-@nox.session(name="integration")
-def run_integration(session):
-    set_environment_variables(PYBAMM_ENV, session=session)
-    session.install("setuptools", silent=False)
-    session.install("casadi", silent=False)
-    session.install("-e", ".[dev]", silent=False)
-    if PYBAMM_ENV.get("PYBAMM_IDAKLU_EXPR_IREE") == "ON":
-        # See comments in 'dev' session
-        session.install(
-            "-e",
-            ".[iree]",
-            "--find-links",
-            PYBAMM_ENV.get("IREE_INDEX_URL"),
-            silent=False,
-        )
-    session.run("pytest", "tests")
