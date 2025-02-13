@@ -55,4 +55,5 @@ jobs:
           
           # Run pybamm tests
           cd ../PyBaMM
-          pytest tests
+          pytest tests/unit
+          pytest tests/integration
