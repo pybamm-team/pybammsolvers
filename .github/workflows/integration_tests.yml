@@ -1,4 +1,4 @@
-name: Unit tests
+name: Integration Tests
 
 on:
   pull_request:
@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  integration_tests:
+  pybamm_tests:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
