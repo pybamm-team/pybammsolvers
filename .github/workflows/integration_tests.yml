@@ -45,8 +45,6 @@ jobs:
           git clone https://github.com/pybamm-team/PyBaMM.git
           # Install PyBaMM
           cd PyBaMM
-          virtualenv .venv
-          source .venv/bin/activate
           pip install -e ".[all,dev,jax]"
           
           # Replace PyBaMM solvers
