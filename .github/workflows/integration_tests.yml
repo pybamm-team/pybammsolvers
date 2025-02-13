@@ -38,8 +38,23 @@ jobs:
           brew analytics off
           brew install libomp
           brew reinstall gcc
-          pip install nox
 
       - name: Build and test
         run: |
+          cd ..
+          git clone https://github.com/pybamm-team/PyBaMM.git
+          # Install PyBaMM
+          cd PyBaMM
+          virtualenv .venv
+          source .venv/bin/activate
+          pip install -e ".[all,dev,jax]"
           
+          # Replace PyBaMM solvers
+          cd ../pybammsolvers
+          pip uninstall pybammsolvers --yes
+          python install_KLU_Sundials.py
+          pip install .
+          
+          # Run pybamm tests
+          pytest tests/unit
+          pytest tests/integration
