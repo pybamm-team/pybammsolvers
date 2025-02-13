@@ -54,5 +54,6 @@ jobs:
           pip install .
           
           # Run pybamm tests
+          cd ../PyBaMM
           pytest tests/unit
           pytest tests/integration
