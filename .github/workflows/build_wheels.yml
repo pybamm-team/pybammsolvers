@@ -68,6 +68,10 @@ jobs:
         with:
           submodules: 'true'
 
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: all
+
       - uses: actions/setup-python@v5
         with:
           python-version: 3.11
@@ -77,9 +81,10 @@ jobs:
         env:
           CIBW_ARCHS_LINUX: x86_64
           CIBW_BEFORE_ALL_LINUX: >
-            yum -y install openblas-devel lapack-devel &&
-            bash install_sundials.sh
-          CIBW_BEFORE_BUILD_LINUX: python -m pip install cmake casadi setuptools wheel
+            yum -y install openblas-devel lapack-devel
+          CIBW_BEFORE_BUILD_LINUX: >
+            python -m pip install cmake casadi setuptools wheel &&
+            python install_KLU_Sundials.py
           CIBW_REPAIR_WHEEL_COMMAND_LINUX: auditwheel repair -w {dest_dir} {wheel}
           CIBW_TEST_EXTRAS: "dev"
           CIBW_TEST_COMMAND: |
