@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  pytest:
+  integration_tests:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
