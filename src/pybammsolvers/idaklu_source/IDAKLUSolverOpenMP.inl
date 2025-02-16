@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Expressions/Expressions.hpp"
 #include "sundials_functions.hpp"
 #include <vector>
@@ -191,6 +193,9 @@ void IDAKLUSolverOpenMP<ExprSet>::SetSolverOptions() {
 
   // Initial step size
   CheckErrors(IDASetInitStep(ida_mem, solver_opts.dt_init));
+
+  // Minimum absolute step size
+  CheckErrors(IDASetMinStep(ida_mem, solver_opts.dt_min));
 
   // Maximum absolute step size
   CheckErrors(IDASetMaxStep(ida_mem, solver_opts.dt_max));

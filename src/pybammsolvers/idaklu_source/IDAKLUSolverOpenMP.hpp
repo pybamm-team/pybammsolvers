@@ -8,7 +8,6 @@ using std::vector;
 
 #include "Options.hpp"
 #include "Solution.hpp"
-#include "sundials_legacy_wrapper.hpp"
 
 /**
  * @brief Abstract solver class based on OpenMP vectors
@@ -106,7 +105,7 @@ public:
   /**
    * @brief Destructor
    */
-  ~IDAKLUSolverOpenMP();
+  virtual ~IDAKLUSolverOpenMP();
 
   /**
    * @brief The main solve method that solves for each variable and time step
