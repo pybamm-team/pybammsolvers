@@ -32,8 +32,7 @@ jobs:
           CIBW_ENVIRONMENT: >
             PYBAMMSOLVERS_USE_VCPKG=ON
             VCPKG_ROOT_DIR=C:\vcpkg
-            VCPKG_BUILD_TYPE="release"
-            VCPKG_DEFAULT_TRIPLET=x64-windows-static-md
+            VCPKG_DEFAULT_TRIPLET=x64-windows-release
             VCPKG_FEATURE_FLAGS=manifests,registries
             CMAKE_GENERATOR="Visual Studio 17 2022"
             CMAKE_GENERATOR_PLATFORM=x64
