@@ -13,8 +13,8 @@
     {
       "kind": "git",
       "repository": "https://github.com/pybamm-team/casadi-vcpkg-registry.git",
-      "baseline": "9cfd83d88ce0cf2e372876da5cc8eb61208526d3",
-      "reference": "9cfd83d88ce0cf2e372876da5cc8eb61208526d3",
+      "baseline": "33394a058d32d8ad5c6f7afbeb1a2a770a23b19d",
+      "reference": "33394a058d32d8ad5c6f7afbeb1a2a770a23b19d",
       "packages": ["casadi"]
     }
   ]
