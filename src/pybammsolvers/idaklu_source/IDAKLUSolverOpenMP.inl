@@ -701,7 +701,11 @@ void IDAKLUSolverOpenMP<ExprSet>::ConsistentInitializationDAE(
   const realtype& t_next,
   const int& icopt) {
   DEBUG("IDAKLUSolver::ConsistentInitializationDAE");
-  IDACalcIC(ida_mem, icopt, t_next);
+  // The solver requires a future time point to calculate the direction
+  // of the initial step and its order of magnitude estimate. Add a
+  // small buffer to t_next to ensure that the initialization is
+  // consistent with the solver's roundoff.
+  IDACalcIC(ida_mem, icopt, 1.1 * (t_next + 1));
 }
 
 template <class ExprSet>
