@@ -705,7 +705,10 @@ void IDAKLUSolverOpenMP<ExprSet>::ConsistentInitializationDAE(
   // of the initial step and its order of magnitude estimate. Add a
   // small buffer to t_next to ensure that the initialization is
   // consistent with the solver's roundoff.
-  IDACalcIC(ida_mem, icopt, 1.1 * (t_next + 1));
+  realtype tout1 = 1.01 * t_next;
+  // Support both forward and backward integration.
+  tout1 += (t_next > t_val) ? 1.0 : -1.0;
+  IDACalcIC(ida_mem, icopt, tout1);
 }
 
 template <class ExprSet>
