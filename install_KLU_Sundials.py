@@ -91,7 +91,7 @@ def build_solvers():
             "-DEXAMPLES_INSTALL=OFF",
             "-DENABLE_KLU=ON",
             "-DENABLE_OPENMP=ON",
-            f"-DKLU_INCLUDE_DIR={KLU_INCLUDE_DIR}",
+            f"-DKLU_INCLUDE_DIR={KLU_INCLUDE_DIR}/suitesparse",
             f"-DKLU_LIBRARY_DIR={KLU_LIBRARY_DIR}",
             "-DCMAKE_INSTALL_PREFIX=" + install_dir,
             # on macOS use fixed paths rather than rpath
