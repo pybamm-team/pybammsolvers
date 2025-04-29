@@ -81,7 +81,7 @@ def build_solvers():
         # Ex: if install_dir -> "/usr/local/" then
         # KLU_INCLUDE_DIR -> "/usr/local/include"
         # KLU_LIBRARY_DIR -> "/usr/local/lib"
-        KLU_INCLUDE_DIR = os.path.join(install_dir, "include")
+        KLU_INCLUDE_DIR = os.path.join(install_dir, "include", "suitesparse")
         KLU_LIBRARY_DIR = os.path.join(install_dir, "lib")
         cmake_args = [
             "-DENABLE_LAPACK=ON",
@@ -91,7 +91,7 @@ def build_solvers():
             "-DEXAMPLES_INSTALL=OFF",
             "-DENABLE_KLU=ON",
             "-DENABLE_OPENMP=ON",
-            f"-DKLU_INCLUDE_DIR={KLU_INCLUDE_DIR}/suitesparse",
+            f"-DKLU_INCLUDE_DIR={KLU_INCLUDE_DIR}",
             f"-DKLU_LIBRARY_DIR={KLU_LIBRARY_DIR}",
             "-DCMAKE_INSTALL_PREFIX=" + install_dir,
             # on macOS use fixed paths rather than rpath
