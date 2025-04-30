@@ -28,7 +28,7 @@ casadi::Function generate_casadi_function(const std::string &data)
 namespace py = pybind11;
 
 PYBIND11_MAKE_OPAQUE(std::vector<np_array>);
-PYBIND11_MAKE_OPAQUE(std::vector<np_array_sunrealtype>);
+PYBIND11_MAKE_OPAQUE(std::vector<np_array_realtype>);
 PYBIND11_MAKE_OPAQUE(std::vector<Solution>);
 
 PYBIND11_MODULE(idaklu, m)
@@ -36,7 +36,7 @@ PYBIND11_MODULE(idaklu, m)
   m.doc() = "sundials solvers"; // optional module docstring
 
   py::bind_vector<std::vector<np_array>>(m, "VectorNdArray");
-  py::bind_vector<std::vector<np_array_sunrealtype>>(m, "VectorsunrealtypeNdArray");
+  py::bind_vector<std::vector<np_array_realtype>>(m, "VectorRealtypeNdArray");
   py::bind_vector<std::vector<Solution>>(m, "VectorSolution");
 
   py::class_<IDAKLUSolverGroup>(m, "IDAKLUSolverGroup")

@@ -65,11 +65,11 @@ private:
 
 class TimeSeriesInterpolator {
 public:
-    TimeSeriesInterpolator(const np_array_sunrealtype& _t_interp,
-                           const vector<np_array_sunrealtype>& _ts_data,
-                           const vector<np_array_sunrealtype>& _ys_data,
-                           const vector<np_array_sunrealtype>& _yps_data,
-                           const vector<np_array_sunrealtype>& _inputs,
+    TimeSeriesInterpolator(const np_array_realtype& _t_interp,
+                           const vector<np_array_realtype>& _ts_data,
+                           const vector<np_array_realtype>& _ys_data,
+                           const vector<np_array_realtype>& _yps_data,
+                           const vector<np_array_realtype>& _inputs,
                            const vector<std::shared_ptr<const casadi::Function>>& _funcs,
                            sunrealtype* _entries,
                            const int _size_spatial)
@@ -198,11 +198,11 @@ public:
     }
 
 private:
-    const np_array_sunrealtype& t_interp_np;
-    const vector<np_array_sunrealtype>& ts_data_np;
-    const vector<np_array_sunrealtype>& ys_data_np;
-    const vector<np_array_sunrealtype>& yps_data_np;
-    const vector<np_array_sunrealtype>& inputs_np;
+    const np_array_realtype& t_interp_np;
+    const vector<np_array_realtype>& ts_data_np;
+    const vector<np_array_realtype>& ys_data_np;
+    const vector<np_array_realtype>& yps_data_np;
+    const vector<np_array_realtype>& inputs_np;
     const vector<std::shared_ptr<const casadi::Function>>& funcs;
     sunrealtype* entries;
     const int size_spatial;
@@ -218,9 +218,9 @@ private:
 // Observe the raw data
 class TimeSeriesProcessor {
 public:
-    TimeSeriesProcessor(const vector<np_array_sunrealtype>& _ts,
-                        const vector<np_array_sunrealtype>& _ys,
-                        const vector<np_array_sunrealtype>& _inputs,
+    TimeSeriesProcessor(const vector<np_array_realtype>& _ts,
+                        const vector<np_array_realtype>& _ys,
+                        const vector<np_array_realtype>& _inputs,
                         const vector<std::shared_ptr<const casadi::Function>>& _funcs,
                         sunrealtype* _entries,
                         const bool _is_f_contiguous,
@@ -280,9 +280,9 @@ private:
         }
     }
 
-    const vector<np_array_sunrealtype>& ts;
-    const vector<np_array_sunrealtype>& ys;
-    const vector<np_array_sunrealtype>& inputs;
+    const vector<np_array_realtype>& ts;
+    const vector<np_array_realtype>& ys;
+    const vector<np_array_realtype>& inputs;
     const vector<std::shared_ptr<const casadi::Function>>& funcs;
     sunrealtype* entries;
     const bool is_f_contiguous;
@@ -294,12 +294,12 @@ private:
     vector<sunrealtype> w;
 };
 
-const np_array_sunrealtype observe_hermite_interp(
-    const np_array_sunrealtype& t_interp_np,
-    const vector<np_array_sunrealtype>& ts_np,
-    const vector<np_array_sunrealtype>& ys_np,
-    const vector<np_array_sunrealtype>& yps_np,
-    const vector<np_array_sunrealtype>& inputs_np,
+const np_array_realtype observe_hermite_interp(
+    const np_array_realtype& t_interp_np,
+    const vector<np_array_realtype>& ts_np,
+    const vector<np_array_realtype>& ys_np,
+    const vector<np_array_realtype>& yps_np,
+    const vector<np_array_realtype>& inputs_np,
     const vector<std::string>& strings,
     const vector<int>& shape
 ) {
@@ -313,10 +313,10 @@ const np_array_sunrealtype observe_hermite_interp(
     return out_array;
 }
 
-const np_array_sunrealtype observe(
-    const vector<np_array_sunrealtype>& ts_np,
-    const vector<np_array_sunrealtype>& ys_np,
-    const vector<np_array_sunrealtype>& inputs_np,
+const np_array_realtype observe(
+    const vector<np_array_realtype>& ts_np,
+    const vector<np_array_realtype>& ys_np,
+    const vector<np_array_realtype>& inputs_np,
     const vector<std::string>& strings,
     const bool is_f_contiguous,
     const vector<int>& shape

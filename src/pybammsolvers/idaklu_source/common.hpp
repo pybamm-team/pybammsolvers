@@ -31,7 +31,7 @@
 namespace py = pybind11;
 // note: we rely on c_style ordering for numpy arrays so don't change this!
 using np_array = py::array_t<sunrealtype, py::array::c_style | py::array::forcecast>;
-using np_array_sunrealtype = py::array_t<sunrealtype>;
+using np_array_realtype = py::array_t<sunrealtype>;
 using np_array_int = py::array_t<int64_t>;
 
 /**
