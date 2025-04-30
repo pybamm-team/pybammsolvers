@@ -16,12 +16,12 @@ using std::vector;
 /**
  * @brief Observe and Hermite interpolate ND variables
  */
-const np_array_realtype observe_hermite_interp(
-    const np_array_realtype& t_interp,
-    const vector<np_array_realtype>& ts,
-    const vector<np_array_realtype>& ys,
-    const vector<np_array_realtype>& yps,
-    const vector<np_array_realtype>& inputs,
+const np_array_sunrealtype observe_hermite_interp(
+    const np_array_sunrealtype& t_interp,
+    const vector<np_array_sunrealtype>& ts,
+    const vector<np_array_sunrealtype>& ys,
+    const vector<np_array_sunrealtype>& yps,
+    const vector<np_array_sunrealtype>& inputs,
     const vector<std::string>& strings,
     const vector<int>& shape
 );
@@ -30,10 +30,10 @@ const np_array_realtype observe_hermite_interp(
 /**
  * @brief Observe ND variables
  */
-const np_array_realtype observe(
-    const vector<np_array_realtype>& ts_np,
-    const vector<np_array_realtype>& ys_np,
-    const vector<np_array_realtype>& inputs_np,
+const np_array_sunrealtype observe(
+    const vector<np_array_sunrealtype>& ts_np,
+    const vector<np_array_sunrealtype>& ys_np,
+    const vector<np_array_sunrealtype>& inputs_np,
     const vector<std::string>& strings,
     const bool is_f_contiguous,
     const vector<int>& shape
