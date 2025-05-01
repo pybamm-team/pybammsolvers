@@ -10,13 +10,6 @@
       "baseline": "5c0dc0c3cdd7d871931cdbbd45f50dbd6b3242dd",
       "reference": "5c0dc0c3cdd7d871931cdbbd45f50dbd6b3242dd",
       "packages": ["sundials"]
-    },
-    {
-      "kind": "git",
-      "repository": "https://github.com/pybamm-team/casadi-vcpkg-registry.git",
-      "baseline": "e4b797736790af90de505e0296b07e87719cb1a6",
-      "reference": "e4b797736790af90de505e0296b07e87719cb1a6",
-      "packages": ["casadi"]
     }
   ]
 }
