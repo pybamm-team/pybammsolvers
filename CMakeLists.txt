@@ -180,21 +180,10 @@ target_link_libraries(idaklu PRIVATE ${SUNDIALS_LIBRARIES} casadi)
 # link suitesparse
 # if using vcpkg, use config mode to
 # find suitesparse. Otherwise, use FindSuiteSparse module
-if(DEFINED VCPKG_ROOT_DIR)
-    find_path(KLU_INCLUDE_DIR NAMES klu.h
-            HINTS
-            "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}"
-            PATH_SUFFIXES
-            include/suitesparse
-    )
-    include_directories(${KLU_INCLUDE_DIRS})
-    target_link_libraries(idaklu PRIVATE ${KLU_LIBRARIES})
-else()
-    find_package(SuiteSparse REQUIRED)
-    message("SuiteSparse found in ${SuiteSparse_INCLUDE_DIRS}: ${SuiteSparse_LIBRARIES}")
-    include_directories(${SuiteSparse_INCLUDE_DIRS})
-    target_link_libraries(idaklu PRIVATE ${SuiteSparse_LIBRARIES})
-endif()
+find_package(SuiteSparse REQUIRED)
+message("SuiteSparse found in ${SuiteSparse_INCLUDE_DIRS}: ${SuiteSparse_LIBRARIES}")
+include_directories(${SuiteSparse_INCLUDE_DIRS})
+target_link_libraries(idaklu PRIVATE ${SuiteSparse_LIBRARIES})
 
 # IREE (MLIR compiler and runtime library) build settings
 if(${PYBAMM_IDAKLU_EXPR_IREE} STREQUAL "ON")
