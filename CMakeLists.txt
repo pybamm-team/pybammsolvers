@@ -180,6 +180,14 @@ target_link_libraries(idaklu PRIVATE ${SUNDIALS_LIBRARIES} casadi)
 # link suitesparse
 # if using vcpkg, use config mode to
 # find suitesparse. Otherwise, use FindSuiteSparse module
+
+get_target_property(SUNDIALS_KLU_LIBRARY_LOC SUNDIALS::KLU IMPORTED_LOCATION)
+get_target_property(SUNDIALS_KLU_LIBRARY_DIR SUNDIALS::KLU INTERFACE_INCLUDE_DIRECTORIES)
+get_target_property(SUNDIALS_KLU_LIBRARY_LIB SUNDIALS::KLU INTERFACE_LINK_LIBRARIES)
+message("sundials klu ${SUNDIALS_KLU_LIBRARY_LOC} ${SUNDIALS_KLU_LIBRARY_DIR} ${SUNDIALS_KLU_LIBRARY_LIB}")
+message("sundials ${SUNDIALS_INCLUDE_DIR} ${SUNDIALS_LIBRARIES}")
+
+
 if(DEFINED VCPKG_ROOT_DIR)
     find_package(SuiteSparse::KLU REQUIRED)
     include_directories(${KLU_INCLUDE_DIRS})
