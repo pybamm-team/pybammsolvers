@@ -181,7 +181,7 @@ target_link_libraries(idaklu PRIVATE ${SUNDIALS_LIBRARIES} casadi)
 # if using vcpkg, use config mode to
 # find suitesparse. Otherwise, use FindSuiteSparse module
 if(DEFINED VCPKG_ROOT_DIR)
-
+    find_package(KLU CONFIG REQUIRED)
     include_directories(${KLU_INCLUDE_DIRS})
     target_link_libraries(idaklu PRIVATE ${KLU_LIBRARIES})
 else()
