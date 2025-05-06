@@ -7,8 +7,7 @@
 # - Archive downloaded and source code extracted in current working
 #   directory.
 # - Library is built and installed.
-#
-# Usage: ./install_sundials.sh suitesparse_version sundials_version
+
 
 function prepend_python_bin_dir_to_PATH {
     python_bin_dir_cmd="print(os.path.split(sys.executable)[0])"
