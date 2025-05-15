@@ -269,14 +269,7 @@ def build_solvers():
                 future.result()
 
     # First check requirements: make and cmake
-    try:
-        subprocess.run(["make", "--version"])
-    except OSError as error:
-        raise RuntimeError("Make must be installed.") from error
-    try:
-        subprocess.run(["cmake", "--version"])
-    except OSError as error:
-        raise RuntimeError("CMake must be installed.") from error
+    check_build_tools()
 
     # Build in parallel wherever possible
     os.environ["CMAKE_BUILD_PARALLEL_LEVEL"] = str(cpu_count())
@@ -339,6 +332,17 @@ def build_solvers():
             # Only SuiteSparse is missing, download and install it
             parallel_download([(SUITESPARSE_URL, SUITESPARSE_CHECKSUM)], download_dir)
             install_suitesparse(download_dir)
+
+
+def check_build_tools():
+    try:
+        subprocess.run(["make", "--version"])
+    except OSError as error:
+        raise RuntimeError("Make must be installed.") from error
+    try:
+        subprocess.run(["cmake", "--version"])
+    except OSError as error:
+        raise RuntimeError("CMake must be installed.") from error
 
 
 if __name__ == "__main__":
