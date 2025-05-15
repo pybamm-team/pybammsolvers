@@ -245,6 +245,5 @@ def check_build_tools():
     except OSError as error:
         raise RuntimeError("CMake must be installed.") from error
 
-
 if __name__ == "__main__":
     build_solvers()
