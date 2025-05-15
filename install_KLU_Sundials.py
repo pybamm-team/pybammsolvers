@@ -142,6 +142,9 @@ def build_solvers():
             sundials_files = [file + ".so" for file in sundials_files]
         elif platform.system() == "Darwin":
             sundials_files = [file + ".dylib" for file in sundials_files]
+        else:
+            # To-Do fix this for windows
+            pass
         sundials_lib_found = True
         # Check for SUNDIALS libraries in each directory
         for lib_file in sundials_files:
@@ -170,9 +173,8 @@ def build_solvers():
         elif platform.system() == "Darwin":
             suitesparse_files = [file + ".dylib" for file in suitesparse_files]
         else:
-            raise NotImplementedError(
-                f"Unsupported operating system: {platform.system()}. This script currently supports only Linux and macOS."
-            )
+            # To-Do fix this for windows
+            pass
 
         suitesparse_lib_found = True
         # Check for SuiteSparse libraries in each directory
