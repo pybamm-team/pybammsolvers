@@ -225,10 +225,10 @@ def build_solvers():
         sundials_found, suitesparse_found = check_libraries_installed()
 
     # Determine which libraries to install
-    if not sundials_found:
-        install_sundials()
     if not suitesparse_found:
         install_suitesparse()
+    if not sundials_found:
+        install_sundials()
 
 
 def check_build_tools():
