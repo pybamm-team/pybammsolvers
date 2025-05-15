@@ -60,9 +60,9 @@ def build_solvers():
                 # if in CI, set RPATH to the install directory for SuiteSparse_config
                 # dylibs to find libomp.dylib when repairing the wheel
                 if os.environ.get("CIBUILDWHEEL") == "1":
-                    env[
-                        "CMAKE_OPTIONS"
-                    ] = f"-DCMAKE_INSTALL_PREFIX={install_dir} -DCMAKE_INSTALL_RPATH={install_dir}/lib"
+                    env["CMAKE_OPTIONS"] = (
+                        f"-DCMAKE_INSTALL_PREFIX={install_dir} -DCMAKE_INSTALL_RPATH={install_dir}/lib"
+                    )
                 else:
                     env["CMAKE_OPTIONS"] = f"-DCMAKE_INSTALL_PREFIX={install_dir}"
             else:
@@ -70,9 +70,9 @@ def build_solvers():
                 # INSTALL RPATH in order to ensure that the dynamic libraries are found
                 # at runtime just once. Otherwise, delocate complains about multiple
                 # references to the SuiteSparse_config dynamic library (auditwheel does not).
-                env[
-                    "CMAKE_OPTIONS"
-                ] = f"-DCMAKE_INSTALL_PREFIX={install_dir} -DCMAKE_INSTALL_RPATH={install_dir}/lib -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=FALSE -DCMAKE_BUILD_WITH_INSTALL_RPATH=FALSE"
+                env["CMAKE_OPTIONS"] = (
+                    f"-DCMAKE_INSTALL_PREFIX={install_dir} -DCMAKE_INSTALL_RPATH={install_dir}/lib -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=FALSE -DCMAKE_BUILD_WITH_INSTALL_RPATH=FALSE"
+                )
             subprocess.run(make_cmd, cwd=build_dir, env=env, shell=True, check=True)
             subprocess.run(install_cmd, cwd=build_dir, check=True)
 
