@@ -11,9 +11,7 @@ from setuptools.command.build_ext import build_ext
 from setuptools.command.bdist_wheel import bdist_wheel
 
 
-default_lib_dir = (
-    "" if system() == "Windows" else str(Path(__file__).parent.resolve() / ".idaklu")
-)
+default_lib_dir = str(Path(__file__).parent.resolve() / ".idaklu")
 
 # ---------- set environment variables for vcpkg on Windows ----------------------------
 

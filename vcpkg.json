@@ -2,11 +2,8 @@
   "name": "pybammsolvers",
   "version-string": "0.1.0",
   "dependencies": [
-    "casadi",
     {
-      "name": "sundials",
-      "default-features": false,
-      "features": ["klu"]
+      "name": "casadi"
     }
   ]
 }
