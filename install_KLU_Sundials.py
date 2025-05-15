@@ -80,9 +80,9 @@ def build_solvers():
             "-DCMAKE_INSTALL_NAME_DIR=" + KLU_LIBRARY_DIR,
         ]
 
-        # try to find OpenMP on mac
+        # try to find OpenMP on Mac
         if platform.system() == "Darwin":
-            # flags to find OpenMP on mac
+            # flags to find OpenMP on Mac
             if platform.processor() == "arm":
                 OpenMP_C_FLAGS = (
                     "-Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include"
@@ -118,14 +118,9 @@ def build_solvers():
 
         build_dir = pathlib.Path("build_sundials")
         if not os.path.exists(build_dir):
-            print("\n-" * 10, "Creating build dir", "-" * 40)
             os.makedirs(build_dir)
-
         sundials_src = "../sundials"
-        print("-" * 10, "Running CMake prepare", "-" * 40)
         subprocess.run(["cmake", sundials_src, *cmake_args], cwd=build_dir, check=True)
-
-        print("-" * 10, "Building SUNDIALS", "-" * 40)
         make_cmd = ["make", f"-j{cpu_count()}", "install"]
         subprocess.run(make_cmd, cwd=build_dir, check=True)
 
@@ -147,6 +142,10 @@ def build_solvers():
             sundials_files = [file + ".so" for file in sundials_files]
         elif platform.system() == "Darwin":
             sundials_files = [file + ".dylib" for file in sundials_files]
+        else:
+            raise NotImplementedError(
+                f"Unsupported operating system: {platform.system()}. This script currently supports only Linux and macOS."
+            )
         sundials_lib_found = True
         # Check for SUNDIALS libraries in each directory
         for lib_file in sundials_files:
