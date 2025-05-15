@@ -8,11 +8,7 @@ from pathlib import Path
 
 nox.options.default_venv_backend = "virtualenv"
 nox.options.reuse_existing_virtualenvs = True
-if sys.platform != "win32":
-    nox.options.sessions = ["idaklu-requires", "unit"]
-else:
-    nox.options.sessions = ["unit"]
-
+nox.options.sessions = ["idaklu-requires", "unit"]
 
 def set_iree_state():
     """
