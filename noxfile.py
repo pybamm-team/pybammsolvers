@@ -10,6 +10,7 @@ nox.options.default_venv_backend = "virtualenv"
 nox.options.reuse_existing_virtualenvs = True
 nox.options.sessions = ["idaklu-requires", "unit"]
 
+
 def set_iree_state():
     """
     Check if IREE is enabled and set the environment variable accordingly.
