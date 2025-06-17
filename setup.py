@@ -90,7 +90,7 @@ class CMakeBuild(build_ext):
         else:
             use_python_casadi = True
 
-        build_type = os.getenv("PYBAMM_CPP_BUILD_TYPE", "RELEASE")
+        build_type = os.getenv("PYBAMM_CPP_BUILD_TYPE", "Release")
         idaklu_expr_casadi = os.getenv("PYBAMM_IDAKLU_EXPR_CASADI", "ON")
         cmake_args = [
             f"-DCMAKE_BUILD_TYPE={build_type}",

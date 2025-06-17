@@ -92,6 +92,10 @@ pybind11_add_module(idaklu
         src/pybammsolvers/idaklu_source/Expressions/Base/ExpressionTypes.hpp
         # IDAKLU expressions - concrete implementations
         ${IDAKLU_EXPR_CASADI_SOURCE_FILES}
+<<<<<<< HEAD
+=======
+        ${IDAKLU_EXPR_IREE_SOURCE_FILES}
+>>>>>>> 0427a7998aac666b0aafd34f0b556b7df0a7e932
 )
 
 if (NOT DEFINED USE_PYTHON_CASADI)
