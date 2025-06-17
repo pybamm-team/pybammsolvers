@@ -168,8 +168,12 @@ endif ()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR})
 # Sundials
-find_package(SUNDIALS REQUIRED)
-message("SUNDIALS found in ${SUNDIALS_INCLUDE_DIR}: ${SUNDIALS_LIBRARIES}")
+if (DEFINED VCPKG_ROOT_DIR)
+    find_package(SUNDIALS CONFIG REQUIRED)
+else ()
+    find_package(SUNDIALS REQUIRED)
+    message("SUNDIALS found in ${SUNDIALS_INCLUDE_DIR}: ${SUNDIALS_LIBRARIES}")
+endif ()
 target_include_directories(idaklu PRIVATE ${SUNDIALS_INCLUDE_DIR})
 target_link_libraries(idaklu PRIVATE ${SUNDIALS_LIBRARIES} casadi)
 
@@ -177,13 +181,15 @@ target_link_libraries(idaklu PRIVATE ${SUNDIALS_LIBRARIES} casadi)
 # if using vcpkg, use config mode to
 # find suitesparse. Otherwise, use FindSuiteSparse module
 if (DEFINED VCPKG_ROOT_DIR)
-    find_package(SuiteSparse CONFIG REQUIRED)
+    find_package(KLU REQUIRED)
+    include_directories(${KLU_INCLUDE_DIRS})
+    target_link_libraries(idaklu PRIVATE ${KLU_LIBRARIES})
 else ()
     find_package(SuiteSparse REQUIRED)
     message("SuiteSparse found in ${SuiteSparse_INCLUDE_DIRS}: ${SuiteSparse_LIBRARIES}")
+    include_directories(${SuiteSparse_INCLUDE_DIRS})
+    target_link_libraries(idaklu PRIVATE ${SuiteSparse_LIBRARIES})
 endif ()
-include_directories(${SuiteSparse_INCLUDE_DIRS})
-target_link_libraries(idaklu PRIVATE ${SuiteSparse_LIBRARIES})
 
 # IREE (MLIR compiler and runtime library) build settings
 if (${PYBAMM_IDAKLU_EXPR_IREE} STREQUAL "ON")
