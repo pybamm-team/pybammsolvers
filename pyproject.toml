@@ -13,8 +13,8 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pybammsolvers"
 description = "Python interface for the IDAKLU solver"
-requires-python = ">=3.9,<3.13"
-license = {file = "LICENSE"}
+requires-python = ">=3.10,<3.13"
+license-files = ["LICENSE"]
 dynamic = ["version", "readme"]
 dependencies = [
     "casadi==3.6.7",
