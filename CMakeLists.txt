@@ -2,24 +2,24 @@ cmake_minimum_required(VERSION 3.13)
 cmake_policy(SET CMP0074 NEW)
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
-if(DEFINED Python_EXECUTABLE)
+if (DEFINED Python_EXECUTABLE)
     set(PYTHON_EXECUTABLE ${Python_EXECUTABLE})
-endif()
+endif ()
 
-if(DEFINED ENV{VCPKG_ROOT_DIR} AND NOT DEFINED VCPKG_ROOT_DIR)
+if (DEFINED ENV{VCPKG_ROOT_DIR} AND NOT DEFINED VCPKG_ROOT_DIR)
     set(VCPKG_ROOT_DIR "$ENV{VCPKG_ROOT_DIR}"
             CACHE STRING "Vcpkg root directory")
-endif()
+endif ()
 
-if(DEFINED VCPKG_ROOT_DIR)
+if (DEFINED VCPKG_ROOT_DIR)
     set(CMAKE_TOOLCHAIN_FILE ${VCPKG_ROOT_DIR}/scripts/buildsystems/vcpkg.cmake
             CACHE STRING "Vcpkg toolchain file")
-endif()
+endif ()
 
-if(DEFINED ENV{VCPKG_DEFAULT_TRIPLET} AND NOT DEFINED VCPKG_TARGET_TRIPLET)
+if (DEFINED ENV{VCPKG_DEFAULT_TRIPLET} AND NOT DEFINED VCPKG_TARGET_TRIPLET)
     set(VCPKG_TARGET_TRIPLET "$ENV{VCPKG_DEFAULT_TRIPLET}"
             CACHE STRING "Vcpkg target triplet")
-endif()
+endif ()
 
 project(idaklu)
 
@@ -28,44 +28,44 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-if(NOT MSVC)
+if (NOT MSVC)
     # MSVC does not support variable length arrays (vla)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=vla")
-endif()
+endif ()
 
 # casadi seems to compile without the newer versions of std::string
 add_compile_definitions(_GLIBCXX_USE_CXX11_ABI=0)
 
-if(NOT PYBIND11_DIR)
+if (NOT PYBIND11_DIR)
     set(PYBIND11_DIR pybind11)
-endif()
+endif ()
 add_subdirectory(${PYBIND11_DIR})
 
 # Check Casadi build flag
-if(NOT DEFINED PYBAMM_IDAKLU_EXPR_CASADI)
+if (NOT DEFINED PYBAMM_IDAKLU_EXPR_CASADI)
     set(PYBAMM_IDAKLU_EXPR_CASADI ON)
-endif()
+endif ()
 message("PYBAMM_IDAKLU_EXPR_CASADI: ${PYBAMM_IDAKLU_EXPR_CASADI}")
 
 # Casadi PyBaMM source files
 set(IDAKLU_EXPR_CASADI_SOURCE_FILES "")
-if(${PYBAMM_IDAKLU_EXPR_CASADI} STREQUAL "ON")
+if (${PYBAMM_IDAKLU_EXPR_CASADI} STREQUAL "ON")
     add_compile_definitions(CASADI_ENABLE)
     set(IDAKLU_EXPR_CASADI_SOURCE_FILES
             src/pybammsolvers/idaklu_source/Expressions/Casadi/CasadiFunctions.cpp
             src/pybammsolvers/idaklu_source/Expressions/Casadi/CasadiFunctions.hpp
     )
-endif()
+endif ()
 
 # Check IREE build flag
-if(NOT DEFINED PYBAMM_IDAKLU_EXPR_IREE)
+if (NOT DEFINED PYBAMM_IDAKLU_EXPR_IREE)
     set(PYBAMM_IDAKLU_EXPR_IREE OFF)
-endif()
+endif ()
 message("PYBAMM_IDAKLU_EXPR_IREE: ${PYBAMM_IDAKLU_EXPR_IREE}")
 
 # IREE (MLIR expression evaluation) PyBaMM source files
 set(IDAKLU_EXPR_IREE_SOURCE_FILES "")
-if(${PYBAMM_IDAKLU_EXPR_IREE} STREQUAL "ON")
+if (${PYBAMM_IDAKLU_EXPR_IREE} STREQUAL "ON")
     add_compile_definitions(IREE_ENABLE)
     # Source file list
     set(IDAKLU_EXPR_IREE_SOURCE_FILES
@@ -76,7 +76,7 @@ if(${PYBAMM_IDAKLU_EXPR_IREE} STREQUAL "ON")
             src/pybammsolvers/idaklu_source/Expressions/IREE/ModuleParser.cpp
             src/pybammsolvers/idaklu_source/Expressions/IREE/ModuleParser.hpp
     )
-endif()
+endif ()
 
 # The complete (all dependencies) sources list should be mirrored in setup.py
 pybind11_add_module(idaklu
@@ -116,9 +116,9 @@ pybind11_add_module(idaklu
         ${IDAKLU_EXPR_IREE_SOURCE_FILES}
 )
 
-if(NOT DEFINED USE_PYTHON_CASADI)
+if (NOT DEFINED USE_PYTHON_CASADI)
     set(USE_PYTHON_CASADI TRUE)
-endif()
+endif ()
 
 
 execute_process(
@@ -127,21 +127,21 @@ execute_process(
         OUTPUT_VARIABLE CASADI_DIR
         OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-if(CASADI_DIR)
+if (CASADI_DIR)
     file(TO_CMAKE_PATH ${CASADI_DIR} CASADI_DIR)
     message("Found Python casadi path: ${CASADI_DIR}")
-else()
+else ()
     message(FATAL_ERROR "Did not find casadi path}")
-endif()
+endif ()
 
-if(${USE_PYTHON_CASADI})
+if (${USE_PYTHON_CASADI})
     message("Trying to link against Python casadi package in ${CASADI_DIR}")
     find_package(casadi CONFIG PATHS ${CASADI_DIR} REQUIRED NO_DEFAULT_PATH)
-else()
+else ()
     message("Trying to link against any casadi package apart from the Python one")
     set(CMAKE_IGNORE_PATH "${CASADI_DIR}/cmake")
     find_package(casadi CONFIG REQUIRED)
-endif()
+endif ()
 
 set_target_properties(
         idaklu PROPERTIES
@@ -150,49 +150,49 @@ set_target_properties(
 )
 
 # openmp
-if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     execute_process(
             COMMAND "brew" "--prefix"
             OUTPUT_VARIABLE HOMEBREW_PREFIX
             OUTPUT_STRIP_TRAILING_WHITESPACE)
-    if(OpenMP_ROOT)
+    if (OpenMP_ROOT)
         set(OpenMP_ROOT "${OpenMP_ROOT}:${HOMEBREW_PREFIX}/opt/libomp")
-    else()
+    else ()
         set(OpenMP_ROOT "${HOMEBREW_PREFIX}/opt/libomp")
-    endif()
-endif()
+    endif ()
+endif ()
 find_package(OpenMP)
 if (OpenMP_CXX_FOUND)
     target_link_libraries(idaklu PRIVATE OpenMP::OpenMP_CXX)
-endif()
+endif ()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR})
 # Sundials
-if(DEFINED VCPKG_ROOT_DIR)
+if (DEFINED VCPKG_ROOT_DIR)
     find_package(SUNDIALS CONFIG REQUIRED)
-else()
+else ()
     find_package(SUNDIALS REQUIRED)
     message("SUNDIALS found in ${SUNDIALS_INCLUDE_DIR}: ${SUNDIALS_LIBRARIES}")
-endif()
+endif ()
 target_include_directories(idaklu PRIVATE ${SUNDIALS_INCLUDE_DIR})
 target_link_libraries(idaklu PRIVATE ${SUNDIALS_LIBRARIES} casadi)
 
 # link suitesparse
 # if using vcpkg, use config mode to
 # find suitesparse. Otherwise, use FindSuiteSparse module
-if(DEFINED VCPKG_ROOT_DIR)
+if (DEFINED VCPKG_ROOT_DIR)
     find_package(KLU REQUIRED)
     include_directories(${KLU_INCLUDE_DIRS})
     target_link_libraries(idaklu PRIVATE ${KLU_LIBRARIES})
-else()
+else ()
     find_package(SuiteSparse REQUIRED)
     message("SuiteSparse found in ${SuiteSparse_INCLUDE_DIRS}: ${SuiteSparse_LIBRARIES}")
     include_directories(${SuiteSparse_INCLUDE_DIRS})
     target_link_libraries(idaklu PRIVATE ${SuiteSparse_LIBRARIES})
-endif()
+endif ()
 
 # IREE (MLIR compiler and runtime library) build settings
-if(${PYBAMM_IDAKLU_EXPR_IREE} STREQUAL "ON")
+if (${PYBAMM_IDAKLU_EXPR_IREE} STREQUAL "ON")
     set(IREE_BUILD_COMPILER ON)
     set(IREE_BUILD_TESTS OFF)
     set(IREE_BUILD_SAMPLES OFF)
@@ -202,4 +202,4 @@ if(${PYBAMM_IDAKLU_EXPR_IREE} STREQUAL "ON")
     target_compile_options(idaklu PRIVATE ${IREE_DEFAULT_COPTS})
     target_link_libraries(idaklu PRIVATE iree_compiler_bindings_c_loader)
     target_link_libraries(idaklu PRIVATE iree_runtime_runtime)
-endif()
+endif ()
