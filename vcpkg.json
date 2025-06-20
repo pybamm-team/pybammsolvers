@@ -4,6 +4,9 @@
   "dependencies": [
     {
       "name": "casadi"
+    },
+    {
+      "name": "blas"
     }
   ],
   "overrides": [
