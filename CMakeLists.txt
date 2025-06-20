@@ -47,7 +47,6 @@ if (NOT DEFINED PYBAMM_IDAKLU_EXPR_CASADI)
 endif ()
 message("PYBAMM_IDAKLU_EXPR_CASADI: ${PYBAMM_IDAKLU_EXPR_CASADI}")
 
-# Casadi PyBaMM source files
 set(IDAKLU_EXPR_CASADI_SOURCE_FILES "")
 if (${PYBAMM_IDAKLU_EXPR_CASADI} STREQUAL "ON")
     add_compile_definitions(CASADI_ENABLE)
@@ -149,7 +148,6 @@ set_target_properties(
         INSTALL_RPATH_USE_LINK_PATH TRUE
 )
 
-# openmp
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     execute_process(
             COMMAND "brew" "--prefix"
@@ -167,21 +165,14 @@ if (OpenMP_CXX_FOUND)
 endif ()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR})
-# Sundials
+
 find_package(SUNDIALS REQUIRED)
 message("SUNDIALS found in ${SUNDIALS_INCLUDE_DIR}: ${SUNDIALS_LIBRARIES}")
 target_include_directories(idaklu PRIVATE ${SUNDIALS_INCLUDE_DIR})
 target_link_libraries(idaklu PRIVATE ${SUNDIALS_LIBRARIES} casadi)
 
-# link suitesparse
-# if using vcpkg, use config mode to
-# find suitesparse. Otherwise, use FindSuiteSparse module
-if (DEFINED VCPKG_ROOT_DIR)
-    find_package(SuiteSparse CONFIG REQUIRED)
-else ()
-    find_package(SuiteSparse REQUIRED)
-    message("SuiteSparse found in ${SuiteSparse_INCLUDE_DIRS}: ${SuiteSparse_LIBRARIES}")
-endif ()
+find_package(SuiteSparse REQUIRED)
+message("SuiteSparse found in ${SuiteSparse_INCLUDE_DIRS}: ${SuiteSparse_LIBRARIES}")
 include_directories(${SuiteSparse_INCLUDE_DIRS})
 target_link_libraries(idaklu PRIVATE ${SuiteSparse_LIBRARIES})
 

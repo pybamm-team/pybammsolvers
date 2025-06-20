@@ -5,5 +5,11 @@
     {
       "name": "casadi"
     }
+  ],
+  "overrides": [
+    {
+      "name": "casadi",
+      "version": "3.6.7"
+    }
   ]
 }
