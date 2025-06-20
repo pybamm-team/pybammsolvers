@@ -27,8 +27,7 @@ jobs:
           python-version: 3.12
 
       - name: Build wheels on Windows
-        run: >
-          pipx run cibuildwheel --output-dir wheelhouse
+        run: pipx run cibuildwheel --output-dir wheelhouse
         env:
           CIBW_ENVIRONMENT: >
             PYBAMMSOLVERS_USE_VCPKG=ON
@@ -39,7 +38,7 @@ jobs:
             CMAKE_GENERATOR_PLATFORM=x64
           CIBW_ARCHS: AMD64
           CIBW_BEFORE_BUILD: >
-            python -m pip install cmake setuptools delvewheel
+            python -m pip install cmake setuptools delvewheel &&
             python install_KLU_Sundials.py
           CIBW_REPAIR_WHEEL_COMMAND: delvewheel repair --add-path C:/Windows/System32 -w {dest_dir} {wheel}
           CIBW_TEST_EXTRAS: "dev"
