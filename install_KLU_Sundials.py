@@ -16,11 +16,7 @@ def build_solvers():
             shutil.rmtree(path)
 
     def install_suitesparse():
-        # The SuiteSparse KLU module has 4 dependencies:
-        # - suitesparseconfig
-        # - AMD
-        # - COLAMD
-        # - BTF
+        klu_dependencies = ["SuiteSparse_config", "AMD", "COLAMD", "BTF", "KLU"]
         suitesparse_src = pathlib.Path("SuiteSparse")
         print("-" * 10, "Building SuiteSparse_config", "-" * 40)
         make_cmd = [
@@ -35,7 +31,7 @@ def build_solvers():
         print("-" * 10, "Building SuiteSparse", "-" * 40)
         # Set CMAKE_OPTIONS as environment variables to pass to the GNU Make command
         env = os.environ.copy()
-        for libdir in ["SuiteSparse_config", "AMD", "COLAMD", "BTF", "KLU"]:
+        for libdir in klu_dependencies:
             build_dir = os.path.join(suitesparse_src, libdir)
             # We want to ensure that libsuitesparseconfig.dylib is not repeated in
             # multiple paths at the time of wheel repair. Therefore, it should not be
@@ -76,7 +72,6 @@ def build_solvers():
             f"-DKLU_INCLUDE_DIR={KLU_INCLUDE_DIR}",
             f"-DKLU_LIBRARY_DIR={KLU_LIBRARY_DIR}",
             "-DCMAKE_INSTALL_PREFIX=" + DEFAULT_INSTALL_DIR,
-            # on macOS use fixed paths rather than rpath
             "-DCMAKE_INSTALL_NAME_DIR=" + KLU_LIBRARY_DIR,
         ]
 
@@ -143,8 +138,7 @@ def build_solvers():
         elif platform.system() == "Darwin":
             sundials_files = [file + ".dylib" for file in sundials_files]
         else:
-            # To-Do fix this for windows
-            pass
+            sundials_files = [file + ".dylib" for file in sundials_files]
         sundials_lib_found = True
         # Check for SUNDIALS libraries in each directory
         for lib_file in sundials_files:
@@ -173,8 +167,7 @@ def build_solvers():
         elif platform.system() == "Darwin":
             suitesparse_files = [file + ".dylib" for file in suitesparse_files]
         else:
-            # To-Do fix this for windows
-            pass
+            suitesparse_files = [file + ".dll" for file in suitesparse_files]
 
         suitesparse_lib_found = True
         # Check for SuiteSparse libraries in each directory
