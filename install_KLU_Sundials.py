@@ -142,7 +142,7 @@ def build_solvers():
         elif platform.system() == "Darwin":
             sundials_files = [file + ".dylib" for file in sundials_files]
         else:
-            sundials_files = [file + ".dylib" for file in sundials_files]
+            sundials_files = [file + ".dll" for file in sundials_files]
         sundials_lib_found = True
         # Check for SUNDIALS libraries in each directory
         for lib_file in sundials_files:
