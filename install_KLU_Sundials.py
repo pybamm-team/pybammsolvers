@@ -18,7 +18,6 @@ def build_solvers():
     def install_suitesparse():
         klu_dependencies = ["SuiteSparse_config", "AMD", "COLAMD", "BTF", "KLU"]
         suitesparse_src = pathlib.Path("SuiteSparse")
-        print("-" * 10, "Building SuiteSparse_config", "-" * 40)
         make_cmd = [
             "make",
             "library",
@@ -28,7 +27,6 @@ def build_solvers():
             f"-j{cpu_count()}",
             "install",
         ]
-        print("-" * 10, "Building SuiteSparse", "-" * 40)
         # Set CMAKE_OPTIONS as environment variables to pass to the GNU Make command
         env = os.environ.copy()
         for libdir in klu_dependencies:
@@ -108,7 +106,6 @@ def build_solvers():
             # in CIBW_BEFORE_ALL in the wheel builder CI job.
             # Check for CI environment variable to determine if we are building a wheel
             if os.environ.get("CIBUILDWHEEL") != "1":
-                print("Using Homebrew OpenMP for macOS build")
                 cmake_args += [
                     "-DOpenMP_C_FLAGS=" + OpenMP_C_FLAGS,
                     "-DOpenMP_C_LIB_NAMES=" + OpenMP_C_LIB_NAMES,
@@ -228,12 +225,12 @@ def build_solvers():
 def check_build_tools():
     try:
         subprocess.run(["make", "--version"])
-    except OSError as error:
-        raise RuntimeError("Make must be installed.") from error
+    except OSError:
+        raise RuntimeError("Make must be installed.") from None
     try:
         subprocess.run(["cmake", "--version"])
-    except OSError as error:
-        raise RuntimeError("CMake must be installed.") from error
+    except OSError:
+        raise RuntimeError("CMake must be installed.") from None
 
 
 if __name__ == "__main__":
