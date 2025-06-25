@@ -110,13 +110,6 @@ def install_sundials():
         "-DCMAKE_INSTALL_NAME_DIR=" + KLU_LIBRARY_DIR,
     ]
 
-    vcpkg_dir = os.environ.get("VCPKG_ROOT_DIR", None)
-    if vcpkg_dir:
-        print(f"\n\n ROOT DIR {vcpkg_dir} \n\n")
-        cmake_args.append(f"-DVCPKG_ROOT_DIR={vcpkg_dir}")
-    else:
-        print("\n\n ROOT DIR UNDEFINED \n\n")
-
     # try to find OpenMP on Mac
     if platform.system() == "Darwin":
         # flags to find OpenMP on Mac
