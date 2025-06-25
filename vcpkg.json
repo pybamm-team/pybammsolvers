@@ -6,7 +6,7 @@
       "name": "casadi"
     },
     {
-      "name": "blas"
+      "name": "openblas"
     }
   ],
   "overrides": [
