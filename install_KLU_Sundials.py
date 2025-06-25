@@ -62,7 +62,7 @@ def check_libraries_installed():
     ]
 
     suitesparse_lib_found = find_library_files(
-        "Suitesparse", lib_dirs, suitesparse_files
+        "SuiteSparse", lib_dirs, suitesparse_files
     )
 
     return sundials_lib_found, suitesparse_lib_found
