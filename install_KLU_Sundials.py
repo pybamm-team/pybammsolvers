@@ -198,7 +198,7 @@ def install_suitesparse():
             cmake_options += f" {vcpkg_dir}/scripts/buildsystems/vcpkg.cmake"
         env["CMAKE_OPTIONS"] = cmake_options
         subprocess.run(make_cmd, cwd=build_dir, env=env, shell=True, check=True)
-        subprocess.run(install_cmd, cwd=build_dir, env=env, shell=True, check=True)
+        subprocess.run(install_cmd, cwd=build_dir, check=True)
 
 
 def safe_remove_dir(path):
