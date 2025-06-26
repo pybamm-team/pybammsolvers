@@ -165,6 +165,7 @@ def install_suitesparse():
         "install",
     ]
     # Set CMAKE_OPTIONS as environment variables to pass to the GNU Make command
+    cmake_options = ""
     env = os.environ.copy()
     for libdir in klu_dependencies:
         build_dir = os.path.join(suitesparse_src, libdir)
@@ -175,19 +176,28 @@ def install_suitesparse():
             # if in CI, set RPATH to the install directory for SuiteSparse_config
             # dylibs to find libomp.dylib when repairing the wheel
             if os.environ.get("CIBUILDWHEEL") == "1":
-                env["CMAKE_OPTIONS"] = (
-                    f"-DCMAKE_INSTALL_PREFIX={DEFAULT_INSTALL_DIR} -DCMAKE_INSTALL_RPATH={DEFAULT_INSTALL_DIR}/lib"
+                cmake_options = (
+                    f" -DCMAKE_INSTALL_PREFIX={DEFAULT_INSTALL_DIR}"
+                    f" -DCMAKE_INSTALL_RPATH={DEFAULT_INSTALL_DIR}/lib"
                 )
             else:
-                env["CMAKE_OPTIONS"] = f"-DCMAKE_INSTALL_PREFIX={DEFAULT_INSTALL_DIR}"
+                cmake_options = f"-DCMAKE_INSTALL_PREFIX={DEFAULT_INSTALL_DIR}"
         else:
             # For AMD, COLAMD, BTF and KLU; do not set a BUILD RPATH but use an
             # INSTALL RPATH in order to ensure that the dynamic libraries are found
             # at runtime just once. Otherwise, delocate complains about multiple
             # references to the SuiteSparse_config dynamic library (auditwheel does not).
-            env["CMAKE_OPTIONS"] = (
-                f"-DCMAKE_INSTALL_PREFIX={DEFAULT_INSTALL_DIR} -DCMAKE_INSTALL_RPATH={DEFAULT_INSTALL_DIR}/lib -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=FALSE -DCMAKE_BUILD_WITH_INSTALL_RPATH=FALSE"
+            cmake_options = (
+                f" -DCMAKE_INSTALL_PREFIX={DEFAULT_INSTALL_DIR}"
+                f" -DCMAKE_INSTALL_RPATH={DEFAULT_INSTALL_DIR}/lib"
+                f" -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=FALSE"
+                f" -DCMAKE_BUILD_WITH_INSTALL_RPATH=FALSE"
             )
+        vcpkg_dir = os.environ.get("VCPKG_ROOT_DIR", None)
+        triplet = os.environ.get("VCPKG_DEFAULT_TRIPLET", None)
+        if vcpkg_dir:
+            cmake_options += f" -DBLAS_ROOT={vcpkg_dir}/{triplet}/lib"
+        env["CMAKE_OPTIONS"] = cmake_options
         subprocess.run(make_cmd, cwd=build_dir, env=env, shell=True, check=True)
         subprocess.run(install_cmd, cwd=build_dir, check=True)
 
