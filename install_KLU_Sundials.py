@@ -196,7 +196,7 @@ def install_suitesparse():
         vcpkg_dir = os.environ.get("VCPKG_ROOT_DIR", None)
         triplet = os.environ.get("VCPKG_DEFAULT_TRIPLET", None)
         if vcpkg_dir:
-            cmake_options += f" -DBLAS_ROOT={vcpkg_dir}/vcpkg_installed/{triplet}/lib"
+            cmake_options += f" -DBLAS_ROOT={vcpkg_dir}/vcpkg_installed/{triplet}"
         env["CMAKE_OPTIONS"] = cmake_options
         subprocess.run(make_cmd, cwd=build_dir, env=env, shell=True, check=True)
         subprocess.run(install_cmd, cwd=build_dir, check=True)
