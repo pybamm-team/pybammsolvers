@@ -194,11 +194,12 @@ def install_suitesparse():
                 f" -DCMAKE_BUILD_WITH_INSTALL_RPATH=FALSE"
             )
         vcpkg_dir = os.environ.get("VCPKG_ROOT_DIR", None)
-        triplet = os.environ.get("VCPKG_TARGET_TRIPLET", None)
+        triplet = os.environ.get("VCPKG_DEFAULT_TRIPLET", None)
         feat_flags = os.environ.get("VCPKG_FEATURE_FLAGS", None)
         if vcpkg_dir:
             cmake_options += (
                 f" -DVCPKG_ROOT_DIR={vcpkg_dir}"
+                f" -DVCPKG_DEFAULT_TRIPLET={triplet}"
                 f" -DVCPKG_TARGET_TRIPLET={triplet}"
                 f" -DVCPKG_FEATURE_FLAGS={feat_flags}"
                 f" -DCMAKE_TOOLCHAIN_FILE={vcpkg_dir}/scripts/buildsystems/vcpkg.cmake"
