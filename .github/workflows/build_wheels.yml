@@ -216,34 +216,13 @@ jobs:
           path: ./wheelhouse/*.whl
           if-no-files-found: error
 
-  build_sdist:
-    name: Build SDist
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: 3.12
-
-      - name: Build SDist
-        run: pipx run build --sdist
-
-      - name: Upload SDist
-        uses: actions/upload-artifact@v4.4.0
-        with:
-          name: sdist
-          path: ./dist/*.tar.gz
-          if-no-files-found: error
-
   publish_pypi:
     if: ${{ github.event_name == 'release' && github.repository == 'pybamm-team/pybammsolvers' }}
     name: Upload package to PyPI
     needs: [
       build_manylinux_wheels,
       build_macos_wheels,
-      build_windows_wheels,
-      build_sdist
+      build_windows_wheels
     ]
     runs-on: ubuntu-latest
     environment:
