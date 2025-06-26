@@ -194,12 +194,11 @@ def install_suitesparse():
                 f" -DCMAKE_BUILD_WITH_INSTALL_RPATH=FALSE"
             )
         vcpkg_dir = os.environ.get("VCPKG_ROOT_DIR", None)
-        triplet = os.environ.get("VCPKG_DEFAULT_TRIPLET", None)
         if vcpkg_dir:
-            cmake_options += f" -DBLAS_ROOT={vcpkg_dir}/vcpkg_installed/{triplet}"
+            cmake_options += f" {vcpkg_dir}/scripts/buildsystems/vcpkg.cmake"
         env["CMAKE_OPTIONS"] = cmake_options
         subprocess.run(make_cmd, cwd=build_dir, env=env, shell=True, check=True)
-        subprocess.run(install_cmd, cwd=build_dir, check=True)
+        subprocess.run(install_cmd, cwd=build_dir, env=env, shell=True, check=True)
 
 
 def safe_remove_dir(path):
