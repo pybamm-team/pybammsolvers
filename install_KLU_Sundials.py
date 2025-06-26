@@ -75,8 +75,8 @@ def find_library_files(library_name, lib_dirs, file_names):
         file_names = [file + ".dylib" for file in file_names]
     else:
         file_names = [file + ".dll" for file in file_names]
-    lib_found = True
 
+    lib_found = True
     for lib_file in file_names:
         file_found = False
         for lib_dir in lib_dirs:
@@ -194,8 +194,15 @@ def install_suitesparse():
                 f" -DCMAKE_BUILD_WITH_INSTALL_RPATH=FALSE"
             )
         vcpkg_dir = os.environ.get("VCPKG_ROOT_DIR", None)
+        triplet = os.environ.get("VCPKG_TARGET_TRIPLET", None)
+        feat_flags = os.environ.get("VCPKG_FEATURE_FLAGS", None)
         if vcpkg_dir:
-            cmake_options += f" {vcpkg_dir}/scripts/buildsystems/vcpkg.cmake"
+            cmake_options += (
+                f" -DVCPKG_ROOT_DIR={vcpkg_dir}"
+                f" -DVCPKG_TARGET_TRIPLET={triplet}"
+                f" -DVCPKG_FEATURE_FLAGS={feat_flags}"
+                f" -DCMAKE_TOOLCHAIN_FILE={vcpkg_dir}/scripts/buildsystems/vcpkg.cmake"
+            )
         env["CMAKE_OPTIONS"] = cmake_options
         subprocess.run(make_cmd, cwd=build_dir, env=env, shell=True, check=True)
         subprocess.run(install_cmd, cwd=build_dir, check=True)
