@@ -3,16 +3,10 @@
   "version-string": "0.1.0",
   "dependencies": [
     {
-      "name": "casadi"
+      "name": "blas"
     },
     {
-      "name": "blas"
-    }
-  ],
-  "overrides": [
-    {
-      "name": "casadi",
-      "version": "3.6.7"
+      "name": "openblas"
     }
   ]
 }
