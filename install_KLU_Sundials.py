@@ -193,6 +193,7 @@ def install_suitesparse():
                 f" -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=FALSE"
                 f" -DCMAKE_BUILD_WITH_INSTALL_RPATH=FALSE"
             )
+        cmake_options += " -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=TRUE"
         vcpkg_dir = os.environ.get("VCPKG_ROOT_DIR", None)
         triplet = os.environ.get("VCPKG_DEFAULT_TRIPLET", None)
         feat_flags = os.environ.get("VCPKG_FEATURE_FLAGS", None)
