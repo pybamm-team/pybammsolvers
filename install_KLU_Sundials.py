@@ -197,6 +197,7 @@ def install_suitesparse():
         vcpkg_dir = os.environ.get("VCPKG_ROOT_DIR", None)
         triplet = os.environ.get("VCPKG_DEFAULT_TRIPLET", None)
         feat_flags = os.environ.get("VCPKG_FEATURE_FLAGS", None)
+        vcpkg_install_dir = str(pathlib.Path(__file__).parent.resolve() / "vcpkg_installed" / triplet)
         if vcpkg_dir:
             cmake_options += (
                 f" -DVCPKG_ROOT_DIR={vcpkg_dir}"
@@ -205,6 +206,7 @@ def install_suitesparse():
                 f" -DVCPKG_FEATURE_FLAGS={feat_flags}"
                 f" -DCMAKE_TOOLCHAIN_FILE={vcpkg_dir}/scripts/buildsystems/vcpkg.cmake"
                 f" -DBLAS_VENDOR=OpenBLAS"
+                f" -DBLAS_ROOT={DEFAULT_INSTALL_DIR}"
             )
         env["CMAKE_OPTIONS"] = cmake_options
         subprocess.run(make_cmd, cwd=build_dir, env=env, shell=True, check=True)
