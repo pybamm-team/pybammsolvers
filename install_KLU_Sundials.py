@@ -204,6 +204,7 @@ def install_suitesparse():
                 f" -DVCPKG_TARGET_TRIPLET={triplet}"
                 f" -DVCPKG_FEATURE_FLAGS={feat_flags}"
                 f" -DCMAKE_TOOLCHAIN_FILE={vcpkg_dir}/scripts/buildsystems/vcpkg.cmake"
+                f" -DBLAS_VENDOR=OpenBLAS"
             )
         env["CMAKE_OPTIONS"] = cmake_options
         subprocess.run(make_cmd, cwd=build_dir, env=env, shell=True, check=True)
