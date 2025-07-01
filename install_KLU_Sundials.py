@@ -97,7 +97,7 @@ def install_sundials():
     KLU_INCLUDE_DIR = os.path.join(DEFAULT_INSTALL_DIR, "include", "suitesparse")
     KLU_LIBRARY_DIR = os.path.join(DEFAULT_INSTALL_DIR, "lib")
     cmake_args = [
-        "-DENABLE_LAPACK=ON",
+        "-DENABLE_LAPACK=OFF",
         "-DSUNDIALS_INDEX_SIZE=32",
         "-DEXAMPLES_ENABLE_C=OFF",
         "-DEXAMPLES_ENABLE_CXX=OFF",
@@ -142,7 +142,6 @@ def install_sundials():
                 "-DOpenMP_C_LIB_NAMES=" + OpenMP_C_LIB_NAMES,
                 "-DOpenMP_omp_LIBRARY=" + OpenMP_omp_LIBRARY,
             ]
-    cmake_args.append("-DBUILD_FORTRAN_MODULE_INTERFACE=OFF")
     build_dir = pathlib.Path("build_sundials")
     if not os.path.exists(build_dir):
         os.makedirs(build_dir)
