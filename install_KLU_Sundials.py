@@ -142,7 +142,7 @@ def install_sundials():
                 "-DOpenMP_C_LIB_NAMES=" + OpenMP_C_LIB_NAMES,
                 "-DOpenMP_omp_LIBRARY=" + OpenMP_omp_LIBRARY,
             ]
-
+    cmake_args.append("-DBUILD_FORTRAN_MODULE_INTERFACE=OFF")
     build_dir = pathlib.Path("build_sundials")
     if not os.path.exists(build_dir):
         os.makedirs(build_dir)
@@ -198,18 +198,12 @@ def install_suitesparse():
         triplet = os.environ.get("VCPKG_DEFAULT_TRIPLET", None)
         feat_flags = os.environ.get("VCPKG_FEATURE_FLAGS", None)
         if vcpkg_dir:
-            vcpkg_install_dir = pathlib.Path(__file__).parent.resolve() / "vcpkg_installed" / triplet
-            print(f"\n\n\n\nfirst dir: {vcpkg_install_dir}\n\n\n\n")
-            if not vcpkg_install_dir.exists():
-                vcpkg_install_dir = pathlib.Path(vcpkg_dir) / "vcpkg_installed" / triplet
-                print(f"\n\n\n\nsecond dir: {vcpkg_install_dir}\n\n\n\n")
             cmake_options += (
                 f" -DVCPKG_ROOT_DIR={vcpkg_dir}"
                 f" -DVCPKG_DEFAULT_TRIPLET={triplet}"
                 f" -DVCPKG_TARGET_TRIPLET={triplet}"
                 f" -DVCPKG_FEATURE_FLAGS={feat_flags}"
                 f" -DCMAKE_TOOLCHAIN_FILE={vcpkg_dir}/scripts/buildsystems/vcpkg.cmake"
-                f" -DBLAS_ROOT={vcpkg_install_dir}"
             )
         env["CMAKE_OPTIONS"] = cmake_options
         subprocess.run(make_cmd, cwd=build_dir, env=env, shell=True, check=True)
