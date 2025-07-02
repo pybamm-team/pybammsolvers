@@ -94,8 +94,8 @@ def find_library_files(library_name, lib_dirs, file_names):
 
 
 def install_sundials():
-    KLU_INCLUDE_DIR = os.path.join(DEFAULT_INSTALL_DIR, "include", "suitesparse")
-    KLU_LIBRARY_DIR = os.path.join(DEFAULT_INSTALL_DIR, "lib")
+    KLU_INCLUDE_DIR = pathlib.Path(DEFAULT_INSTALL_DIR) / "include" / "suitesparse"
+    KLU_LIBRARY_DIR = pathlib.Path(DEFAULT_INSTALL_DIR) / "lib"
     cmake_args = [
         "-DENABLE_LAPACK=OFF",
         "-DSUNDIALS_INDEX_SIZE=32",
@@ -106,8 +106,8 @@ def install_sundials():
         "-DENABLE_OPENMP=ON",
         f"-DKLU_INCLUDE_DIR={KLU_INCLUDE_DIR}",
         f"-DKLU_LIBRARY_DIR={KLU_LIBRARY_DIR}",
-        "-DCMAKE_INSTALL_PREFIX=" + DEFAULT_INSTALL_DIR,
-        "-DCMAKE_INSTALL_NAME_DIR=" + KLU_LIBRARY_DIR,
+        f"-DCMAKE_INSTALL_PREFIX={DEFAULT_INSTALL_DIR}",
+        f"-DCMAKE_INSTALL_NAME_DIR={KLU_LIBRARY_DIR}",
     ]
 
     # try to find OpenMP on Mac
