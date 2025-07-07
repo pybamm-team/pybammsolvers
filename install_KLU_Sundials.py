@@ -7,8 +7,7 @@ from os.path import join, isfile
 from multiprocessing import cpu_count
 import pathlib
 
-DEFAULT_INSTALL_DIR = str(pathlib.Path(__file__).parent.resolve() / ".idaklu")
-
+DEFAULT_INSTALL_DIR = pathlib.Path(__file__).parent.resolve() / ".idaklu"
 
 def build_solvers():
     os.environ["CMAKE_BUILD_PARALLEL_LEVEL"] = str(cpu_count())
@@ -145,7 +144,7 @@ def install_sundials():
     build_dir = pathlib.Path("build_sundials")
     if not os.path.exists(build_dir):
         os.makedirs(build_dir)
-    sundials_src = "../sundials"
+    sundials_src = str(pathlib.Path("..") / "sundials")
     subprocess.run(["cmake", sundials_src, *cmake_args], cwd=build_dir, check=True)
     make_cmd = ["make", f"-j{cpu_count()}", "install"]
     subprocess.run(make_cmd, cwd=build_dir, check=True)
@@ -164,7 +163,6 @@ def install_suitesparse():
         "install",
     ]
     # Set CMAKE_OPTIONS as environment variables to pass to the GNU Make command
-    cmake_options = ""
     env = os.environ.copy()
     for libdir in klu_dependencies:
         build_dir = os.path.join(suitesparse_src, libdir)
@@ -177,7 +175,7 @@ def install_suitesparse():
             if os.environ.get("CIBUILDWHEEL") == "1":
                 cmake_options = (
                     f" -DCMAKE_INSTALL_PREFIX={DEFAULT_INSTALL_DIR}"
-                    f" -DCMAKE_INSTALL_RPATH={DEFAULT_INSTALL_DIR}/lib"
+                    f" -DCMAKE_INSTALL_RPATH={DEFAULT_INSTALL_DIR / 'lib'}"
                 )
             else:
                 cmake_options = f"-DCMAKE_INSTALL_PREFIX={DEFAULT_INSTALL_DIR}"
@@ -188,7 +186,7 @@ def install_suitesparse():
             # references to the SuiteSparse_config dynamic library (auditwheel does not).
             cmake_options = (
                 f" -DCMAKE_INSTALL_PREFIX={DEFAULT_INSTALL_DIR}"
-                f" -DCMAKE_INSTALL_RPATH={DEFAULT_INSTALL_DIR}/lib"
+                f" -DCMAKE_INSTALL_RPATH={DEFAULT_INSTALL_DIR / 'lib'}"
                 f" -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=FALSE"
                 f" -DCMAKE_BUILD_WITH_INSTALL_RPATH=FALSE"
             )
@@ -197,12 +195,13 @@ def install_suitesparse():
         triplet = os.environ.get("VCPKG_DEFAULT_TRIPLET", None)
         feat_flags = os.environ.get("VCPKG_FEATURE_FLAGS", None)
         if vcpkg_dir:
+            tool_chain = pathlib.Path(vcpkg_dir) / "scripts" / "buildsystems" / "vcpkg.cmake"
             cmake_options += (
                 f" -DVCPKG_ROOT_DIR={vcpkg_dir}"
                 f" -DVCPKG_DEFAULT_TRIPLET={triplet}"
                 f" -DVCPKG_TARGET_TRIPLET={triplet}"
                 f" -DVCPKG_FEATURE_FLAGS={feat_flags}"
-                f" -DCMAKE_TOOLCHAIN_FILE={vcpkg_dir}/scripts/buildsystems/vcpkg.cmake"
+                f" -DCMAKE_TOOLCHAIN_FILE={tool_chain}"
             )
         env["CMAKE_OPTIONS"] = cmake_options
         subprocess.run(make_cmd, cwd=build_dir, env=env, shell=True, check=True)
