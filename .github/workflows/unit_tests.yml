@@ -49,4 +49,4 @@ jobs:
 
       - name: Build and test
         run: |
-          nox
+          nox -s unit

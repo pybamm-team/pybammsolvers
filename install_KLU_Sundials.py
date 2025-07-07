@@ -9,6 +9,7 @@ import pathlib
 
 DEFAULT_INSTALL_DIR = pathlib.Path(__file__).parent.resolve() / ".idaklu"
 
+
 def build_solvers():
     os.environ["CMAKE_BUILD_PARALLEL_LEVEL"] = str(cpu_count())
     parser = argparse.ArgumentParser(
@@ -195,7 +196,9 @@ def install_suitesparse():
         triplet = os.environ.get("VCPKG_DEFAULT_TRIPLET", None)
         feat_flags = os.environ.get("VCPKG_FEATURE_FLAGS", None)
         if vcpkg_dir:
-            tool_chain = pathlib.Path(vcpkg_dir) / "scripts" / "buildsystems" / "vcpkg.cmake"
+            tool_chain = (
+                pathlib.Path(vcpkg_dir) / "scripts" / "buildsystems" / "vcpkg.cmake"
+            )
             cmake_options += (
                 f" -DVCPKG_ROOT_DIR={vcpkg_dir}"
                 f" -DVCPKG_DEFAULT_TRIPLET={triplet}"
