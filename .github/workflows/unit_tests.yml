@@ -49,4 +49,5 @@ jobs:
 
       - name: Build and test
         run: |
+          nox -s idaklu-requires
           nox -s unit

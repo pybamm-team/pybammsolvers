@@ -27,6 +27,7 @@ def build_solvers():
             "The '--force' option is activated: installation will be forced, ignoring any existing libraries."
         )
         safe_remove_dir(pathlib.Path("build_sundials"))
+        safe_remove_dir(".idaklu")
         sundials_found, suitesparse_found = False, False
     else:
         sundials_found, suitesparse_found = check_libraries_installed()
