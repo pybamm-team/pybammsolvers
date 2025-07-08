@@ -220,9 +220,9 @@ def install_sundials():
         ["cmake", sundials_src, *cmake_args], cwd=build_dir.as_posix(), check=True
     )
     if platform.system() == "Windows":
-        make_cmd = ["msbuild", "ALL_BUILD.vcxproj"]
+        make_cmd = ["msbuild.exe", "ALL_BUILD.vcxproj"]
         subprocess.run(make_cmd, cwd=build_dir.as_posix(), check=True)
-        make_cmd = ["msbuild", "INSTALL.vcxproj"]
+        make_cmd = ["msbuild.exe", "INSTALL.vcxproj"]
         subprocess.run(make_cmd, cwd=build_dir.as_posix(), check=True)
     else:
         make_cmd = ["make", f"-j{cpu_count()}", "install"]
