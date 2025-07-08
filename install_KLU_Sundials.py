@@ -8,6 +8,7 @@ from multiprocessing import cpu_count
 import pathlib
 
 DEFAULT_INSTALL_DIR = pathlib.Path(__file__).parent.resolve() / ".idaklu"
+DEFAULT_LIB_DIR = DEFAULT_INSTALL_DIR / 'lib'
 
 
 def build_solvers():
@@ -95,8 +96,8 @@ def find_library_files(library_name, lib_dirs, file_names):
 
 
 def install_sundials():
-    KLU_INCLUDE_DIR = pathlib.Path(DEFAULT_INSTALL_DIR) / "include" / "suitesparse"
-    KLU_LIBRARY_DIR = pathlib.Path(DEFAULT_INSTALL_DIR) / "lib"
+    KLU_INCLUDE_DIR = DEFAULT_INSTALL_DIR / "include" / "suitesparse"
+    KLU_LIBRARY_DIR = DEFAULT_LIB_DIR
     cmake_args = [
         "-DENABLE_LAPACK=OFF",
         "-DSUNDIALS_INDEX_SIZE=32",
@@ -105,10 +106,10 @@ def install_sundials():
         "-DEXAMPLES_INSTALL=OFF",
         "-DENABLE_KLU=ON",
         "-DENABLE_OPENMP=ON",
-        f"-DKLU_INCLUDE_DIR={KLU_INCLUDE_DIR}",
-        f"-DKLU_LIBRARY_DIR={KLU_LIBRARY_DIR}",
-        f"-DCMAKE_INSTALL_PREFIX={DEFAULT_INSTALL_DIR}",
-        f"-DCMAKE_INSTALL_NAME_DIR={KLU_LIBRARY_DIR}",
+        f"-DKLU_INCLUDE_DIR={KLU_INCLUDE_DIR.as_posix()}",
+        f"-DKLU_LIBRARY_DIR={KLU_LIBRARY_DIR.as_posix()}",
+        f"-DCMAKE_INSTALL_PREFIX={DEFAULT_INSTALL_DIR.as_posix()}",
+        f"-DCMAKE_INSTALL_NAME_DIR={KLU_LIBRARY_DIR.as_posix()}",
     ]
 
     # try to find OpenMP on Mac
@@ -146,8 +147,8 @@ def install_sundials():
     build_dir = pathlib.Path("build_sundials")
     if not os.path.exists(build_dir):
         os.makedirs(build_dir)
-    sundials_src = str(pathlib.Path("..") / "sundials")
-    subprocess.run(["cmake", sundials_src, *cmake_args], cwd=build_dir, check=True)
+    sundials_src = str((pathlib.Path("..") / "sundials").as_posix())
+    subprocess.run(["cmake", sundials_src, *cmake_args], cwd=build_dir.as_posix(), check=True)
     make_cmd = ["make", f"-j{cpu_count()}", "install"]
     subprocess.run(make_cmd, cwd=build_dir, check=True)
 
@@ -176,19 +177,19 @@ def install_suitesparse():
             # dylibs to find libomp.dylib when repairing the wheel
             if os.environ.get("CIBUILDWHEEL") == "1":
                 cmake_options = (
-                    f" -DCMAKE_INSTALL_PREFIX={DEFAULT_INSTALL_DIR}"
-                    f" -DCMAKE_INSTALL_RPATH={DEFAULT_INSTALL_DIR / 'lib'}"
+                    fr" -DCMAKE_INSTALL_PREFIX={DEFAULT_INSTALL_DIR.as_posix()}"
+                    fr" -DCMAKE_INSTALL_RPATH={DEFAULT_LIB_DIR.as_posix()}"
                 )
             else:
-                cmake_options = f"-DCMAKE_INSTALL_PREFIX={DEFAULT_INSTALL_DIR}"
+                cmake_options = f"-DCMAKE_INSTALL_PREFIX={DEFAULT_INSTALL_DIR.as_posix()}"
         else:
             # For AMD, COLAMD, BTF and KLU; do not set a BUILD RPATH but use an
             # INSTALL RPATH in order to ensure that the dynamic libraries are found
             # at runtime just once. Otherwise, delocate complains about multiple
             # references to the SuiteSparse_config dynamic library (auditwheel does not).
             cmake_options = (
-                f" -DCMAKE_INSTALL_PREFIX={DEFAULT_INSTALL_DIR}"
-                f" -DCMAKE_INSTALL_RPATH={DEFAULT_INSTALL_DIR / 'lib'}"
+                f" -DCMAKE_INSTALL_PREFIX={DEFAULT_INSTALL_DIR.as_posix()}"
+                f" -DCMAKE_INSTALL_RPATH={DEFAULT_LIB_DIR.as_posix()}"
                 f" -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=FALSE"
                 f" -DCMAKE_BUILD_WITH_INSTALL_RPATH=FALSE"
             )
@@ -197,15 +198,16 @@ def install_suitesparse():
         triplet = os.environ.get("VCPKG_DEFAULT_TRIPLET", None)
         feat_flags = os.environ.get("VCPKG_FEATURE_FLAGS", None)
         if vcpkg_dir:
+            vcpkg_dir = pathlib.Path(vcpkg_dir)
             tool_chain = (
-                pathlib.Path(vcpkg_dir) / "scripts" / "buildsystems" / "vcpkg.cmake"
+                vcpkg_dir / "scripts" / "buildsystems" / "vcpkg.cmake"
             )
             cmake_options += (
-                f" -DVCPKG_ROOT_DIR={vcpkg_dir}"
-                f" -DVCPKG_DEFAULT_TRIPLET={triplet}"
-                f" -DVCPKG_TARGET_TRIPLET={triplet}"
-                f" -DVCPKG_FEATURE_FLAGS={feat_flags}"
-                f" -DCMAKE_TOOLCHAIN_FILE={tool_chain}"
+                fr" -DVCPKG_ROOT_DIR={vcpkg_dir.as_posix()}"
+                fr" -DVCPKG_DEFAULT_TRIPLET={triplet}"
+                fr" -DVCPKG_TARGET_TRIPLET={triplet}"
+                fr" -DVCPKG_FEATURE_FLAGS={feat_flags}"
+                fr" -DCMAKE_TOOLCHAIN_FILE={tool_chain.as_posix()}"
             )
         env["CMAKE_OPTIONS"] = cmake_options
         subprocess.run(make_cmd, cwd=build_dir, env=env, shell=True, check=True)
