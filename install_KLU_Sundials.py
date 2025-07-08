@@ -42,26 +42,28 @@ def build_solvers():
 def check_libraries_installed():
     lib_dirs = [DEFAULT_INSTALL_DIR]
 
-    sundials_files = [
-        "libsundials_idas",
-        "libsundials_sunlinsolklu",
-        "libsundials_sunlinsoldense",
-        "libsundials_sunlinsolspbcgs",
-        "libsundials_sunlinsollapackdense",
-        "libsundials_sunmatrixsparse",
-        "libsundials_nvecserial",
-        "libsundials_nvecopenmp",
-    ]
+    prefix = "" if platform.system() == "Windows" else "lib"
+
+    sundials_files = [prefix + f for f in [
+        "sundials_idas",
+        "sundials_sunlinsolklu",
+        "sundials_sunlinsoldense",
+        "sundials_sunlinsolspbcgs",
+        "sundials_sunlinsollapackdense",
+        "sundials_sunmatrixsparse",
+        "sundials_nvecserial",
+        "sundials_nvecopenmp",
+    ]]
 
     sundials_lib_found = find_library_files("Sundials", lib_dirs, sundials_files)
 
-    suitesparse_files = [
-        "libsuitesparseconfig",
-        "libklu",
-        "libamd",
-        "libcolamd",
-        "libbtf",
-    ]
+    suitesparse_files = [prefix + f for f in [
+        "suitesparseconfig",
+        "klu",
+        "amd",
+        "colamd",
+        "btf",
+    ]]
 
     suitesparse_lib_found = find_library_files(
         "SuiteSparse", lib_dirs, suitesparse_files
@@ -156,8 +158,14 @@ def install_sundials():
     subprocess.run(
         ["cmake", sundials_src, *cmake_args], cwd=build_dir.as_posix(), check=True
     )
-    make_cmd = ["make", f"-j{cpu_count()}", "install"]
-    subprocess.run(make_cmd, cwd=build_dir.as_posix(), check=True)
+    if platform.system() == "Windows":
+        make_cmd = ["msbuild", "ALL_BUILD.vcxproj"]
+        subprocess.run(make_cmd, cwd=build_dir.as_posix(), check=True)
+        make_cmd = ["msbuild", "INSTALL.vcxproj"]
+        subprocess.run(make_cmd, cwd=build_dir.as_posix(), check=True)
+    else:
+        make_cmd = ["make", f"-j{cpu_count()}", "install"]
+        subprocess.run(make_cmd, cwd=build_dir.as_posix(), check=True)
 
 
 def install_suitesparse():
