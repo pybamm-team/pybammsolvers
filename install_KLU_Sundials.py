@@ -103,76 +103,6 @@ def find_library_files(library_name, lib_dirs, file_names):
     return lib_found
 
 
-def install_sundials():
-    KLU_INCLUDE_DIR = DEFAULT_INSTALL_DIR / "include" / "suitesparse"
-    KLU_LIBRARY_DIR = DEFAULT_LIB_DIR
-    cmake_args = [
-        "-DENABLE_LAPACK=OFF",
-        "-DSUNDIALS_INDEX_SIZE=32",
-        "-DEXAMPLES_ENABLE_C=OFF",
-        "-DEXAMPLES_ENABLE_CXX=OFF",
-        "-DEXAMPLES_INSTALL=OFF",
-        "-DENABLE_KLU=ON",
-        "-DENABLE_OPENMP=ON",
-        f"-DKLU_INCLUDE_DIR={KLU_INCLUDE_DIR.as_posix()}",
-        f"-DKLU_LIBRARY_DIR={KLU_LIBRARY_DIR.as_posix()}",
-        f"-DCMAKE_INSTALL_PREFIX={DEFAULT_INSTALL_DIR.as_posix()}",
-        f"-DCMAKE_INSTALL_NAME_DIR={KLU_LIBRARY_DIR.as_posix()}",
-    ]
-
-    # Fix library prefix on Windows
-    if platform.system() == "Windows":
-        cmake_args.append("-DCMAKE_FIND_LIBRARY_PREFIXES=''")
-
-    # try to find OpenMP on Mac
-    if platform.system() == "Darwin":
-        # flags to find OpenMP on Mac
-        if platform.processor() == "arm":
-            OpenMP_C_FLAGS = (
-                "-Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include"
-            )
-            OpenMP_C_LIB_NAMES = "omp"
-            OpenMP_omp_LIBRARY = "/opt/homebrew/opt/libomp/lib/libomp.dylib"
-        elif platform.processor() == "i386":
-            OpenMP_C_FLAGS = "-Xpreprocessor -fopenmp -I/usr/local/opt/libomp/include"
-            OpenMP_C_LIB_NAMES = "omp"
-            OpenMP_omp_LIBRARY = "/usr/local/opt/libomp/lib/libomp.dylib"
-        else:
-            raise NotImplementedError(
-                f"Unsupported processor architecture: {platform.processor()}. "
-                "Only 'arm' and 'i386' architectures are supported."
-            )
-
-        # Don't pass the following args to CMake when building wheels. We set a custom
-        # OpenMP installation for macOS wheels in the wheel build script.
-        # This is because we can't use Homebrew's OpenMP dylib due to the wheel
-        # repair process, where Homebrew binaries are not built for distribution and
-        # break MACOSX_DEPLOYMENT_TARGET. We use a custom OpenMP binary as described
-        # in CIBW_BEFORE_ALL in the wheel builder CI job.
-        # Check for CI environment variable to determine if we are building a wheel
-        if os.environ.get("CIBUILDWHEEL") != "1":
-            cmake_args += [
-                "-DOpenMP_C_FLAGS=" + OpenMP_C_FLAGS,
-                "-DOpenMP_C_LIB_NAMES=" + OpenMP_C_LIB_NAMES,
-                "-DOpenMP_omp_LIBRARY=" + OpenMP_omp_LIBRARY,
-            ]
-    build_dir = pathlib.Path("build_sundials")
-    if not os.path.exists(build_dir):
-        os.makedirs(build_dir)
-    sundials_src = str((pathlib.Path("..") / "sundials").as_posix())
-    subprocess.run(
-        ["cmake", sundials_src, *cmake_args], cwd=build_dir.as_posix(), check=True
-    )
-    if platform.system() == "Windows":
-        make_cmd = ["msbuild", "ALL_BUILD.vcxproj"]
-        subprocess.run(make_cmd, cwd=build_dir.as_posix(), check=True)
-        make_cmd = ["msbuild", "INSTALL.vcxproj"]
-        subprocess.run(make_cmd, cwd=build_dir.as_posix(), check=True)
-    else:
-        make_cmd = ["make", f"-j{cpu_count()}", "install"]
-        subprocess.run(make_cmd, cwd=build_dir.as_posix(), check=True)
-
-
 def install_suitesparse():
     klu_dependencies = ["SuiteSparse_config", "AMD", "COLAMD", "BTF", "KLU"]
     suitesparse_src = pathlib.Path("SuiteSparse")
@@ -232,6 +162,71 @@ def install_suitesparse():
         env["CMAKE_OPTIONS"] = cmake_options
         subprocess.run(make_cmd, cwd=build_dir, env=env, shell=True, check=True)
         subprocess.run(install_cmd, cwd=build_dir, check=True)
+
+
+def install_sundials():
+    KLU_INCLUDE_DIR = DEFAULT_INSTALL_DIR / "include" / "suitesparse"
+    KLU_LIBRARY_DIR = DEFAULT_LIB_DIR
+    cmake_args = [
+        "-DENABLE_LAPACK=OFF",
+        "-DSUNDIALS_INDEX_SIZE=32",
+        "-DEXAMPLES_ENABLE_C=OFF",
+        "-DEXAMPLES_ENABLE_CXX=OFF",
+        "-DEXAMPLES_INSTALL=OFF",
+        "-DENABLE_KLU=ON",
+        "-DENABLE_OPENMP=ON",
+        f"-DKLU_ROOT={KLU_INCLUDE_DIR.as_posix()}",
+        f"-DCMAKE_INSTALL_PREFIX={DEFAULT_INSTALL_DIR.as_posix()}",
+        f"-DCMAKE_INSTALL_NAME_DIR={KLU_LIBRARY_DIR.as_posix()}",
+    ]
+
+    # try to find OpenMP on Mac
+    if platform.system() == "Darwin":
+        # flags to find OpenMP on Mac
+        if platform.processor() == "arm":
+            OpenMP_C_FLAGS = (
+                "-Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include"
+            )
+            OpenMP_C_LIB_NAMES = "omp"
+            OpenMP_omp_LIBRARY = "/opt/homebrew/opt/libomp/lib/libomp.dylib"
+        elif platform.processor() == "i386":
+            OpenMP_C_FLAGS = "-Xpreprocessor -fopenmp -I/usr/local/opt/libomp/include"
+            OpenMP_C_LIB_NAMES = "omp"
+            OpenMP_omp_LIBRARY = "/usr/local/opt/libomp/lib/libomp.dylib"
+        else:
+            raise NotImplementedError(
+                f"Unsupported processor architecture: {platform.processor()}. "
+                "Only 'arm' and 'i386' architectures are supported."
+            )
+
+        # Don't pass the following args to CMake when building wheels. We set a custom
+        # OpenMP installation for macOS wheels in the wheel build script.
+        # This is because we can't use Homebrew's OpenMP dylib due to the wheel
+        # repair process, where Homebrew binaries are not built for distribution and
+        # break MACOSX_DEPLOYMENT_TARGET. We use a custom OpenMP binary as described
+        # in CIBW_BEFORE_ALL in the wheel builder CI job.
+        # Check for CI environment variable to determine if we are building a wheel
+        if os.environ.get("CIBUILDWHEEL") != "1":
+            cmake_args += [
+                "-DOpenMP_C_FLAGS=" + OpenMP_C_FLAGS,
+                "-DOpenMP_C_LIB_NAMES=" + OpenMP_C_LIB_NAMES,
+                "-DOpenMP_omp_LIBRARY=" + OpenMP_omp_LIBRARY,
+            ]
+    build_dir = pathlib.Path("build_sundials")
+    if not os.path.exists(build_dir):
+        os.makedirs(build_dir)
+    sundials_src = str((pathlib.Path("..") / "sundials").as_posix())
+    subprocess.run(
+        ["cmake", sundials_src, *cmake_args], cwd=build_dir.as_posix(), check=True
+    )
+    if platform.system() == "Windows":
+        make_cmd = ["msbuild", "ALL_BUILD.vcxproj"]
+        subprocess.run(make_cmd, cwd=build_dir.as_posix(), check=True)
+        make_cmd = ["msbuild", "INSTALL.vcxproj"]
+        subprocess.run(make_cmd, cwd=build_dir.as_posix(), check=True)
+    else:
+        make_cmd = ["make", f"-j{cpu_count()}", "install"]
+        subprocess.run(make_cmd, cwd=build_dir.as_posix(), check=True)
 
 
 def safe_remove_dir(path):
