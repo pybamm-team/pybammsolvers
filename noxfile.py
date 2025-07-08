@@ -53,6 +53,6 @@ def run_pybamm_requires(session):
 def run_unit(session):
     set_environment_variables(PYBAMM_ENV, session=session)
     session.install("setuptools", silent=False)
-    session.install("casadi==3.7.0", silent=False)
+    session.install("casadi==3.6.7", silent=False)
     session.install(".[dev]", silent=False)
     session.run("pytest", "tests")
