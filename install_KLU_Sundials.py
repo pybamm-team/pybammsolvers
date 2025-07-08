@@ -44,26 +44,32 @@ def check_libraries_installed():
 
     prefix = "" if platform.system() == "Windows" else "lib"
 
-    sundials_files = [prefix + f for f in [
-        "sundials_idas",
-        "sundials_sunlinsolklu",
-        "sundials_sunlinsoldense",
-        "sundials_sunlinsolspbcgs",
-        "sundials_sunlinsollapackdense",
-        "sundials_sunmatrixsparse",
-        "sundials_nvecserial",
-        "sundials_nvecopenmp",
-    ]]
+    sundials_files = [
+        prefix + f
+        for f in [
+            "sundials_idas",
+            "sundials_sunlinsolklu",
+            "sundials_sunlinsoldense",
+            "sundials_sunlinsolspbcgs",
+            "sundials_sunlinsollapackdense",
+            "sundials_sunmatrixsparse",
+            "sundials_nvecserial",
+            "sundials_nvecopenmp",
+        ]
+    ]
 
     sundials_lib_found = find_library_files("Sundials", lib_dirs, sundials_files)
 
-    suitesparse_files = [prefix + f for f in [
-        "suitesparseconfig",
-        "klu",
-        "amd",
-        "colamd",
-        "btf",
-    ]]
+    suitesparse_files = [
+        prefix + f
+        for f in [
+            "suitesparseconfig",
+            "klu",
+            "amd",
+            "colamd",
+            "btf",
+        ]
+    ]
 
     suitesparse_lib_found = find_library_files(
         "SuiteSparse", lib_dirs, suitesparse_files
@@ -112,7 +118,7 @@ def install_sundials():
         f"-DKLU_LIBRARY_DIR={KLU_LIBRARY_DIR.as_posix()}",
         f"-DCMAKE_INSTALL_PREFIX={DEFAULT_INSTALL_DIR.as_posix()}",
         f"-DCMAKE_INSTALL_NAME_DIR={KLU_LIBRARY_DIR.as_posix()}",
-        "-DCMAKE_FIND_LIBRARY_PREFIXES=''"
+        "-DCMAKE_FIND_LIBRARY_PREFIXES=''",
     ]
 
     # Fix library prefix on Windows
