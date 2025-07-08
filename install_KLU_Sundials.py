@@ -76,7 +76,7 @@ def find_library_files(library_name, lib_dirs, file_names):
     elif platform.system() == "Darwin":
         file_names = [file + ".dylib" for file in file_names]
     else:
-        file_names = [file + ".dll" for file in file_names]
+        file_names = [file + ".lib" for file in file_names]
 
     lib_found = True
     for lib_file in file_names:
@@ -110,7 +110,12 @@ def install_sundials():
         f"-DKLU_LIBRARY_DIR={KLU_LIBRARY_DIR.as_posix()}",
         f"-DCMAKE_INSTALL_PREFIX={DEFAULT_INSTALL_DIR.as_posix()}",
         f"-DCMAKE_INSTALL_NAME_DIR={KLU_LIBRARY_DIR.as_posix()}",
+        "-DCMAKE_FIND_LIBRARY_PREFIXES=''"
     ]
+
+    # Fix library prefix on Windows
+    if platform.system() == "Windows":
+        cmake_args.append("-DCMAKE_FIND_LIBRARY_PREFIXES=''")
 
     # try to find OpenMP on Mac
     if platform.system() == "Darwin":
@@ -152,7 +157,7 @@ def install_sundials():
         ["cmake", sundials_src, *cmake_args], cwd=build_dir.as_posix(), check=True
     )
     make_cmd = ["make", f"-j{cpu_count()}", "install"]
-    subprocess.run(make_cmd, cwd=build_dir, check=True)
+    subprocess.run(make_cmd, cwd=build_dir.as_posix(), check=True)
 
 
 def install_suitesparse():
