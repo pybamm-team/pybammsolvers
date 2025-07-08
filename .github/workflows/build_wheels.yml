@@ -38,7 +38,7 @@ jobs:
             CMAKE_GENERATOR_PLATFORM=x64
           CIBW_ARCHS: AMD64
           CIBW_BEFORE_ALL_WINDOWS: >
-            vcpkg install blas openblas &&
+            vcpkg install blas &&
             python install_KLU_Sundials.py
           CIBW_BEFORE_BUILD: python -m pip install setuptools delvewheel
           CIBW_REPAIR_WHEEL_COMMAND: delvewheel repair --add-path C:/Windows/System32 -w {dest_dir} {wheel}
