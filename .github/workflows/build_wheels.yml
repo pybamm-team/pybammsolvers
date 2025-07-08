@@ -25,6 +25,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: 3.12
+      - uses: microsoft/setup-msbuild@v2
 
       - name: Build wheels on Windows
         run: pipx run cibuildwheel --output-dir wheelhouse
