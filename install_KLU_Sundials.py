@@ -8,7 +8,7 @@ from multiprocessing import cpu_count
 import pathlib
 
 DEFAULT_INSTALL_DIR = pathlib.Path(__file__).parent.resolve() / ".idaklu"
-DEFAULT_LIB_DIR = DEFAULT_INSTALL_DIR / 'lib'
+DEFAULT_LIB_DIR = DEFAULT_INSTALL_DIR / "lib"
 
 
 def build_solvers():
@@ -148,7 +148,9 @@ def install_sundials():
     if not os.path.exists(build_dir):
         os.makedirs(build_dir)
     sundials_src = str((pathlib.Path("..") / "sundials").as_posix())
-    subprocess.run(["cmake", sundials_src, *cmake_args], cwd=build_dir.as_posix(), check=True)
+    subprocess.run(
+        ["cmake", sundials_src, *cmake_args], cwd=build_dir.as_posix(), check=True
+    )
     make_cmd = ["make", f"-j{cpu_count()}", "install"]
     subprocess.run(make_cmd, cwd=build_dir, check=True)
 
@@ -177,11 +179,13 @@ def install_suitesparse():
             # dylibs to find libomp.dylib when repairing the wheel
             if os.environ.get("CIBUILDWHEEL") == "1":
                 cmake_options = (
-                    fr" -DCMAKE_INSTALL_PREFIX={DEFAULT_INSTALL_DIR.as_posix()}"
-                    fr" -DCMAKE_INSTALL_RPATH={DEFAULT_LIB_DIR.as_posix()}"
+                    rf" -DCMAKE_INSTALL_PREFIX={DEFAULT_INSTALL_DIR.as_posix()}"
+                    rf" -DCMAKE_INSTALL_RPATH={DEFAULT_LIB_DIR.as_posix()}"
                 )
             else:
-                cmake_options = f"-DCMAKE_INSTALL_PREFIX={DEFAULT_INSTALL_DIR.as_posix()}"
+                cmake_options = (
+                    f"-DCMAKE_INSTALL_PREFIX={DEFAULT_INSTALL_DIR.as_posix()}"
+                )
         else:
             # For AMD, COLAMD, BTF and KLU; do not set a BUILD RPATH but use an
             # INSTALL RPATH in order to ensure that the dynamic libraries are found
@@ -199,15 +203,13 @@ def install_suitesparse():
         feat_flags = os.environ.get("VCPKG_FEATURE_FLAGS", None)
         if vcpkg_dir:
             vcpkg_dir = pathlib.Path(vcpkg_dir)
-            tool_chain = (
-                vcpkg_dir / "scripts" / "buildsystems" / "vcpkg.cmake"
-            )
+            tool_chain = vcpkg_dir / "scripts" / "buildsystems" / "vcpkg.cmake"
             cmake_options += (
-                fr" -DVCPKG_ROOT_DIR={vcpkg_dir.as_posix()}"
-                fr" -DVCPKG_DEFAULT_TRIPLET={triplet}"
-                fr" -DVCPKG_TARGET_TRIPLET={triplet}"
-                fr" -DVCPKG_FEATURE_FLAGS={feat_flags}"
-                fr" -DCMAKE_TOOLCHAIN_FILE={tool_chain.as_posix()}"
+                rf" -DVCPKG_ROOT_DIR={vcpkg_dir.as_posix()}"
+                rf" -DVCPKG_DEFAULT_TRIPLET={triplet}"
+                rf" -DVCPKG_TARGET_TRIPLET={triplet}"
+                rf" -DVCPKG_FEATURE_FLAGS={feat_flags}"
+                rf" -DCMAKE_TOOLCHAIN_FILE={tool_chain.as_posix()}"
             )
         env["CMAKE_OPTIONS"] = cmake_options
         subprocess.run(make_cmd, cwd=build_dir, env=env, shell=True, check=True)
