@@ -130,7 +130,6 @@ class CMakeBuild(build_ext):
         # ---------- Run CMake and build IDAKLU module -----------------------------------------
 
         cmake_list_dir = os.path.abspath(os.path.dirname(__file__))
-        print("-" * 10, "Running CMake for IDAKLU solver", "-" * 40)
         subprocess.run(
             ["cmake", cmake_list_dir, *cmake_args],
             cwd=build_dir,
@@ -147,7 +146,6 @@ class CMakeBuild(build_ext):
             )
             raise RuntimeError(msg)
         else:
-            print("-" * 10, "Building IDAKLU module", "-" * 40)
             subprocess.run(
                 ["cmake", "--build", ".", "--config", "Release"],
                 cwd=build_dir,
