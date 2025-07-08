@@ -147,7 +147,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR})
 find_package(SUNDIALS REQUIRED)
 message("SUNDIALS found in ${SUNDIALS_INCLUDE_DIR}: ${SUNDIALS_LIBRARIES}")
 target_include_directories(idaklu PRIVATE ${SUNDIALS_INCLUDE_DIR})
-target_link_libraries(idaklu PRIVATE ${SUNDIALS_LIBRARIES} casadi)
+target_link_libraries(idaklu PRIVATE ${SUNDIALS_LIBRARIES} casadi::casadi)
 
 find_package(SuiteSparse REQUIRED)
 message("SuiteSparse found in ${SuiteSparse_INCLUDE_DIRS}: ${SuiteSparse_LIBRARIES}")

@@ -46,7 +46,7 @@ def run_pybamm_requires(session):
     """Download, compile, and install the build-time requirements for Linux and macOS.
     Supports --install-dir for custom installation paths and --force to force installation."""
     set_environment_variables(PYBAMM_ENV, session=session)
-    session.error("nox -s idaklu-requires is only available on Linux & macOS.")
+    session.run("python", "install_KLU_Sundials.py", *session.posargs)
 
 
 @nox.session(name="unit")

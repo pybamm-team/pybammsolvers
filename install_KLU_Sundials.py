@@ -3,7 +3,6 @@ import subprocess
 import argparse
 import platform
 import shutil
-from os.path import join, isfile
 from multiprocessing import cpu_count
 import pathlib
 
@@ -51,7 +50,6 @@ def check_libraries_installed():
             "sundials_sunlinsolklu",
             "sundials_sunlinsoldense",
             "sundials_sunlinsolspbcgs",
-            "sundials_sunlinsollapackdense",
             "sundials_sunmatrixsparse",
             "sundials_nvecserial",
             "sundials_nvecopenmp",
@@ -90,7 +88,7 @@ def find_library_files(library_name, lib_dirs, file_names):
     for lib_file in file_names:
         file_found = False
         for lib_dir in lib_dirs:
-            if isfile(join(lib_dir, "lib", lib_file)):
+            if (lib_dir / "lib" / lib_file).exists():
                 print(f"{lib_file} found in {lib_dir}.")
                 file_found = True
                 break
