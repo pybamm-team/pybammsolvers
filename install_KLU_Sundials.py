@@ -118,7 +118,6 @@ def install_sundials():
         f"-DKLU_LIBRARY_DIR={KLU_LIBRARY_DIR.as_posix()}",
         f"-DCMAKE_INSTALL_PREFIX={DEFAULT_INSTALL_DIR.as_posix()}",
         f"-DCMAKE_INSTALL_NAME_DIR={KLU_LIBRARY_DIR.as_posix()}",
-        "-DCMAKE_FIND_LIBRARY_PREFIXES=''",
     ]
 
     # Fix library prefix on Windows
