@@ -886,6 +886,7 @@ void IDAKLUSolverOpenMP<ExprSet>::SetStepOutputSensitivities(
 
       // fill sensitivities
       for (int paramk = 0; paramk < number_of_parameters; paramk++) {
+        auto &yS_back_paramk = yS[i_save][paramk];
         sunrealtype sens = dvar_dp_dense[paramk];  // Direct term
 
         for (int nz = 0; nz < dvar_dy->nnz_out(); ++nz) {
@@ -894,7 +895,7 @@ void IDAKLUSolverOpenMP<ExprSet>::SetStepOutputSensitivities(
           }
         }
 
-        yS[i_save][paramk][global_out_idx] = sens;
+        yS_back_paramk[global_out_idx] = sens;
       }
     }
   }
