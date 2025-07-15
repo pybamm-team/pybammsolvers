@@ -858,29 +858,43 @@ void IDAKLUSolverOpenMP<ExprSet>::SetStepOutputSensitivities(
     int &i_save
   ) {
   DEBUG("IDAKLUSolver::SetStepOutputSensitivities");
-  // Calculate sensitivities
-  vector<sunrealtype> dens_dvar_dp = vector<sunrealtype>(number_of_parameters, 0);
-  for (size_t dvar_k=0; dvar_k<functions->dvar_dy_fcns.size(); dvar_k++) {
+
+  // Running index over the flattened outputs
+  size_t global_out_idx = 0;
+
+  for (size_t dvar_k = 0; dvar_k < functions->var_fcns.size(); ++dvar_k) {
     // Isolate functions
     Expression* dvar_dy = functions->dvar_dy_fcns[dvar_k];
     Expression* dvar_dp = functions->dvar_dp_fcns[dvar_k];
+    
     // Calculate dvar/dy
     (*dvar_dy)({&tval, y_val, functions->inputs.data()}, {&res_dvar_dy[0]});
-    // Calculate dvar/dp and convert to dense array for indexing
+    // Calculate dvar/dp
     (*dvar_dp)({&tval, y_val, functions->inputs.data()}, {&res_dvar_dp[0]});
-    for (int k=0; k<number_of_parameters; k++) {
-      dens_dvar_dp[k]=0;
-    }
-    for (int k=0; k<dvar_dp->nnz_out(); k++) {
-      dens_dvar_dp[dvar_dp->get_row()[k]] = res_dvar_dp[k];
-    }
-    // Calculate sensitivities
-    for (int paramk=0; paramk<number_of_parameters; paramk++) {
-      auto &yS_back_paramk = yS[i_save][paramk];
-      yS_back_paramk[dvar_k] = dens_dvar_dp[paramk];
 
-      for (int spk=0; spk<dvar_dy->nnz_out(); spk++) {
-        yS_back_paramk[dvar_k] += res_dvar_dy[spk] * yS_val[paramk][dvar_dy->get_col()[spk]];
+    const size_t n_rows = functions->var_fcns[dvar_k]->nnz_out();  // Number of components
+
+    // Iterate over each output component
+    for (size_t row = 0; row < n_rows; ++row, ++global_out_idx) {
+      // Dense dvar_row/dp_k (initially zero)
+      vector<sunrealtype> dvar_dp_dense(number_of_parameters, 0.0);
+      for (int nz = 0; nz < dvar_dp->nnz_out(); ++nz) {
+        if (dvar_dp->get_row()[nz] == static_cast<int>(row)) {
+          dvar_dp_dense[dvar_dp->get_col()[nz]] = res_dvar_dp[nz];  // col = parameter idx
+        }
+      }
+
+      // fill sensitivities
+      for (int paramk = 0; paramk < number_of_parameters; paramk++) {
+        sunrealtype sens = dvar_dp_dense[paramk];  // Direct term
+
+        for (int nz = 0; nz < dvar_dy->nnz_out(); ++nz) {
+          if (dvar_dy->get_row()[nz] == static_cast<int>(row)) {  // row = this component
+            sens += res_dvar_dy[nz] * yS_val[paramk][dvar_dy->get_col()[nz]];
+          }
+        }
+
+        yS[i_save][paramk][global_out_idx] = sens;
       }
     }
   }
