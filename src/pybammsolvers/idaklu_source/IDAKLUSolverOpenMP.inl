@@ -873,14 +873,21 @@ void IDAKLUSolverOpenMP<ExprSet>::SetStepOutputSensitivities(
     (*dvar_dp)({&tval, y_val, functions->inputs.data()}, {&res_dvar_dp[0]});
 
     const size_t n_rows = functions->var_fcns[dvar_k]->nnz_out();  // Number of components
+    const int dvar_dy_nnz = dvar_dy->nnz_out();
+    const int dvar_dp_nnz = dvar_dp->nnz_out();
+    const auto& dvar_dy_row = dvar_dy->get_row();
+    const auto& dvar_dy_col = dvar_dy->get_col();
+    const auto& dvar_dp_row = dvar_dp->get_row();
+    const auto& dvar_dp_col = dvar_dp->get_col();
 
     // Iterate over each output component
+    vector<sunrealtype> dvar_dp_dense(number_of_parameters, 0.0);
     for (size_t row = 0; row < n_rows; ++row, ++global_out_idx) {
-      // Dense dvar_row/dp_k (initially zero)
-      vector<sunrealtype> dvar_dp_dense(number_of_parameters, 0.0);
-      for (int nz = 0; nz < dvar_dp->nnz_out(); ++nz) {
-        if (dvar_dp->get_row()[nz] == static_cast<int>(row)) {
-          dvar_dp_dense[dvar_dp->get_col()[nz]] = res_dvar_dp[nz];  // col = parameter idx
+      // Dense dvar_row/dp_k (reset to zero)
+      std::fill(dvar_dp_dense.begin(), dvar_dp_dense.end(), 0.0);
+      for (int nz = 0; nz < dvar_dp_nnz; ++nz) {
+        if (dvar_dp_row[nz] == static_cast<int>(row)) {
+          dvar_dp_dense[dvar_dp_col[nz]] = res_dvar_dp[nz];  // col = parameter idx
         }
       }
 
@@ -889,9 +896,9 @@ void IDAKLUSolverOpenMP<ExprSet>::SetStepOutputSensitivities(
         auto &yS_back_paramk = yS[i_save][paramk];
         sunrealtype sens = dvar_dp_dense[paramk];  // Direct term
 
-        for (int nz = 0; nz < dvar_dy->nnz_out(); ++nz) {
-          if (dvar_dy->get_row()[nz] == static_cast<int>(row)) {  // row = this component
-            sens += res_dvar_dy[nz] * yS_val[paramk][dvar_dy->get_col()[nz]];
+        for (int nz = 0; nz < dvar_dy_nnz; ++nz) {
+          if (dvar_dy_row[nz] == static_cast<int>(row)) {  // row = this component
+            sens += res_dvar_dy[nz] * yS_val[paramk][dvar_dy_col[nz]];
           }
         }
 
