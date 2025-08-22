@@ -49,8 +49,10 @@ jobs:
           CIBW_REPAIR_WHEEL_COMMAND: delvewheel repair --add-path C:/Windows/System32 -w {dest_dir} {wheel}
           CIBW_TEST_EXTRAS: "dev"
           CIBW_TEST_COMMAND: |
+            # Sanity check idaklu lib import
             python -m pytest {project}/tests
 
+            # Run PyBaMM test suite
             git clone https://github.com/pybamm-team/PyBaMM.git pybamm-clone-for-tests
             cd pybamm-clone-for-tests
             pip install -e ".[all,dev,jax]"
