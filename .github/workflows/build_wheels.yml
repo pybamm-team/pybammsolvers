@@ -26,6 +26,14 @@ jobs:
         with:
           python-version: 3.12
 
+      - name: Install vcpkg on Windows
+        run: |
+          cd C:\
+          rm -r -fo 'C:\vcpkg'
+          git clone https://github.com/microsoft/vcpkg --branch 2024.12.16
+          cd vcpkg
+          .\bootstrap-vcpkg.bat
+
       - name: Build wheels on Windows
         run: pipx run cibuildwheel --output-dir wheelhouse
         env:
