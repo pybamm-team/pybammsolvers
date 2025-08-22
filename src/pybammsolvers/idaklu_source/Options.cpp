@@ -167,7 +167,7 @@ SolverOptions::SolverOptions(py::dict &py_opts)
     // Early termination. Key checks enable backward compatibility with previous versions
     // of pybamm.
     num_steps_no_progress = 0;
-    t_no_progress = std::numeric_limits<sunrealtype>::infinity();
+    t_no_progress = SUN_RCONST(0.0);
     if (py_opts.contains("num_steps_no_progress")) {
         num_steps_no_progress = py_opts["num_steps_no_progress"].cast<size_t>();
     }

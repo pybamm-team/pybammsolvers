@@ -19,7 +19,7 @@ public:
   }
 
   inline bool Disabled() const {
-    return window_size_ == 0 || threshold_sec_ == std::numeric_limits<sunrealtype>::infinity();
+    return window_size_ == 0 || threshold_sec_ == SUN_RCONST(0.0);
   }
 
   // initialize with a full window of threshold values to avoid immediate triggering
