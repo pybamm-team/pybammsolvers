@@ -6,10 +6,7 @@ from pathlib import Path
 
 nox.options.default_venv_backend = "virtualenv"
 nox.options.reuse_existing_virtualenvs = True
-if sys.platform != "win32":
-    nox.options.sessions = ["idaklu-requires", "unit"]
-else:
-    nox.options.sessions = ["unit"]
+nox.options.sessions = ["pre-commit", "idaklu-requires", "unit"]
 
 homedir = Path(__file__)
 PYBAMM_ENV = {
@@ -36,6 +33,13 @@ def set_environment_variables(env_dict, session):
     """
     for key, value in env_dict.items():
         session.env[key] = value
+
+
+@nox.session(name="pre-commit")
+def lint(session):
+    """Check all files against the defined pre-commit hooks."""
+    session.install("pre-commit", silent=False)
+    session.run("pre-commit", "run", "--all-files")
 
 
 @nox.session(name="idaklu-requires")
