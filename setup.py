@@ -9,7 +9,7 @@ from setuptools import setup
 from setuptools.command.install import install
 from setuptools.command.bdist_wheel import bdist_wheel
 
-from pybind11 import get_include as pybind11_get_include
+import pybind11
 from pybind11.setup_helpers import Pybind11Extension, build_ext
 
 default_lib_dir = (
@@ -93,11 +93,15 @@ class CMakeBuild(build_ext):
 
         build_type = os.getenv("PYBAMM_CPP_BUILD_TYPE", "Release")
         idaklu_expr_casadi = os.getenv("PYBAMM_IDAKLU_EXPR_CASADI", "ON")
+
+        pybind11_cmake_dir = pybind11.get_cmake_dir()
+
         cmake_args = [
             f"-DCMAKE_BUILD_TYPE={build_type}",
             f"-DPYTHON_EXECUTABLE={sys.executable}",
             "-DUSE_PYTHON_CASADI={}".format("TRUE" if use_python_casadi else "FALSE"),
             f"-DPYBAMM_IDAKLU_EXPR_CASADI={idaklu_expr_casadi}",
+            f"-Dpybind11_DIR={pybind11_cmake_dir}",
         ]
         if self.suitesparse_root:
             cmake_args.append(
@@ -268,7 +272,7 @@ ext_modules = [
             "src/pybammsolvers/idaklu_source/Options.cpp",
             "src/pybammsolvers/idaklu.cpp",
         ],
-        include_dirs=[str(Path(default_lib_dir) / "include"), pybind11_get_include()],
+        include_dirs=[str(Path(default_lib_dir) / "include"), pybind11.get_include()],
     )
 ]
 
