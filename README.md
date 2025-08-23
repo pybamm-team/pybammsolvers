@@ -42,9 +42,9 @@ pip install .
 Linux installs may vary based on the distribution, however, the basic build can
 be performed with the following commands:
 ```bash
-sudo apt-get install libopenblas-dev gcc make g++ build-essential
-git submodules update --init --recursive
-pip install cmake casadi setuptools wheel "pybind11[global]"
+sudo apt-get install libopenblas-dev gcc gfortran make g++ build-essential
+git submodules update --init --recurisive
+pip install cmake casadi setuptools wheel pybind11
 python install_KLU_Sundials.py
 pip install .
 ```
