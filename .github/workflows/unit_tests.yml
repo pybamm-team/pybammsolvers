@@ -31,7 +31,7 @@ jobs:
       - name: Install dependencies (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          sudo apt-get install gfortran gcc libopenblas-dev
+          sudo apt-get install gcc libopenblas-dev
           pip install nox
 
       - name: Install dependencies (MacOs)
