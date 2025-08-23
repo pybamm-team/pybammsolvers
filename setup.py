@@ -5,11 +5,11 @@ from multiprocessing import cpu_count
 from pathlib import Path
 from platform import system
 
-from setuptools import setup, Extension
+from setuptools import setup
 from setuptools.command.install import install
-from setuptools.command.build_ext import build_ext
 from setuptools.command.bdist_wheel import bdist_wheel
 
+from pybind11.setup_helpers import Pybind11Extension, build_ext
 
 default_lib_dir = (
     "" if system() == "Windows" else str(Path(__file__).parent.resolve() / ".idaklu")
@@ -231,7 +231,7 @@ class PyBaMMWheel(bdist_wheel):
 
 
 ext_modules = [
-    Extension(
+    Pybind11Extension(
         name="pybammsolvers.idaklu",
         # The sources list should mirror the list in CMakeLists.txt
         sources=[
