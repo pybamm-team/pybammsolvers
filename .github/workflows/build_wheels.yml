@@ -123,6 +123,7 @@ jobs:
             fi
 
             export SDKROOT=${SDKROOT:-$(xcrun --show-sdk-path)}
+            SOLVER_LIB_PATH=$(pwd)/.idaklu/lib
 
             # Can't download LLVM-OpenMP directly, use conda and set environment variables
             brew install miniforge
