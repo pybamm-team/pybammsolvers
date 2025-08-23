@@ -31,10 +31,10 @@ jobs:
       - name: Install dependencies (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          sudo apt-get install gcc libopenblas-dev
+          sudo apt-get install gcc gfortran libopenblas-dev
           pip install nox
 
-      - name: Install dependencies (MacOs)
+      - name: Install dependencies (macOS)
         if: matrix.os == 'macos-13' || matrix.os == 'macos-latest'
         env:
           HOMEBREW_NO_INSTALL_CLEANUP: 1
