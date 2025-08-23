@@ -9,7 +9,7 @@ from setuptools import setup
 from setuptools.command.install import install
 from setuptools.command.bdist_wheel import bdist_wheel
 
-from pybind11 import get_include as pybind11_get_include
+import pybind11
 from pybind11.setup_helpers import Pybind11Extension, build_ext
 
 default_lib_dir = (
@@ -272,7 +272,7 @@ ext_modules = [
             "src/pybammsolvers/idaklu_source/Options.cpp",
             "src/pybammsolvers/idaklu.cpp",
         ],
-        include_dirs=[str(Path(default_lib_dir) / "include"), pybind11_get_include()],
+        include_dirs=[str(Path(default_lib_dir) / "include"), pybind11.get_include()],
     )
 ]
 
