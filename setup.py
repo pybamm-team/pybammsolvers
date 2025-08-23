@@ -39,12 +39,15 @@ def set_vcpkg_environment_variables():
 
 # ---------- find Python CasADi's include dirs (for Linux and macOS) -------------------
 
+
 def get_casadi_python_include_dir():
     import casadi
+
     casadi_path = Path(casadi.__file__).parent
     include_dir = casadi_path / "include"
     assert include_dir.exists(), f"CasADi include directory not found at {include_dir}"
     return str(include_dir)
+
 
 if USE_PYTHON_CASADI:
     casadi_include = get_casadi_python_include_dir()
