@@ -106,7 +106,11 @@ if (${USE_PYTHON_CASADI})
     endif ()
 
     message("Trying to link against Python casadi package in ${CASADI_DIR}")
-    find_package(casadi CONFIG PATHS ${CASADI_DIR} REQUIRED NO_DEFAULT_PATH)
+    if (EXISTS "${CASADI_DIR}/casadiConfig.cmake" OR EXISTS "${CASADI_DIR}/casadi-config.cmake")
+        find_package(casadi CONFIG PATHS ${CASADI_DIR} NO_DEFAULT_PATH)
+    else ()
+        message(WARNING "CasADi CMake config not found in ${CASADI_DIR}. Proceeding without find_package; using include and library paths discovered from the Python package.")
+    endif ()
 
     execute_process(
             COMMAND "${PYTHON_EXECUTABLE}" -c
