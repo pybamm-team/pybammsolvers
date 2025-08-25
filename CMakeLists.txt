@@ -142,6 +142,14 @@ if (${USE_PYTHON_CASADI})
                 INSTALL_RPATH "${CASADI_LIB_DIR}"
                 INSTALL_RPATH_USE_LINK_PATH TRUE
         )
+        # Attempt to link the casadi library directly if found
+        find_library(CASADI_LIBRARY NAMES casadi PATHS ${CASADI_LIB_DIR} NO_DEFAULT_PATH)
+        if (CASADI_LIBRARY)
+            message("Found CasADi library: ${CASADI_LIBRARY}")
+            target_link_libraries(idaklu PRIVATE ${CASADI_LIBRARY})
+        else ()
+            message(WARNING "CasADi library not found in ${CASADI_LIB_DIR}. The target will rely on transitive linkage via CMake config if available.")
+        endif ()
     else ()
         message(FATAL_ERROR "Could not find CasADi library directory")
     endif ()
