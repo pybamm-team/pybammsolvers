@@ -25,7 +25,7 @@ jobs:
 
       - name: Install dependencies (Linux)
         if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get install gcc gfortran libopenblas-dev
+        run: sudo apt-get install gfortran gcc libopenblas-dev
 
       - name: Install dependencies (macOS)
         if: matrix.os == 'macos-13' || matrix.os == 'macos-latest'
