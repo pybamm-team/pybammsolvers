@@ -391,8 +391,14 @@ SolutionData IDAKLUSolverOpenMP<ExprSet>::solve(
   sunrealtype t0 = t_eval.front();
   sunrealtype tf = t_eval.back();
 
+  // We need a slightly perturbed tf value to avoid roundoff errors
+  // during initialization and time stepping.
+  const bool increasing = (tf > t0);
+  sunrealtype tf_perturbed = perturb_time(tf, increasing);
+
   sunrealtype t_val = t0;
   sunrealtype t_prev = t0;
+  sunrealtype dt;
   int i_eval = 0;
 
   sunrealtype t_interp_next;
@@ -447,7 +453,13 @@ SolutionData IDAKLUSolverOpenMP<ExprSet>::solve(
 
   // Progress one step. This must be done before the while loop to ensure
   // that we can run IDAGetDky at t0 for dky = 1
-  int retval = IDASolve(ida_mem, tf, &t_val, yy, yyp, IDA_ONE_STEP);
+  int retval = IDASolve(ida_mem, tf_perturbed, &t_val, yy, yyp, IDA_ONE_STEP);
+  dt = t_val - t_prev;
+
+  // Optional method to fail the simulation if the solver is not making progress.
+  NoProgressGuard no_progression(solver_opts.num_steps_no_progress, solver_opts.t_no_progress);
+  no_progression.Initialize();
+  no_progression.AddDt(dt);
 
   // Store consistent initialization
   CheckErrors(IDAGetDky(ida_mem, t0, 0, yy));
@@ -466,7 +478,7 @@ SolutionData IDAKLUSolverOpenMP<ExprSet>::solve(
     if (retval < 0) {
       // failed
       break;
-    } else if (t_prev == t_val) {
+    } else if (t_prev == t_val || no_progression.Violated()) {
       // IDA sometimes returns an identical time point twice
       // instead of erroring. Assign a retval and break
       retval = IDA_ERR_FAIL;
@@ -518,16 +530,20 @@ SolutionData IDAKLUSolverOpenMP<ExprSet>::solve(
       i_eval++;
       t_eval_next = t_eval[i_eval];
       CheckErrors(IDASetStopTime(ida_mem, t_eval_next));
-
       // Reinitialize the solver to deal with the discontinuity at t = t_val.
       ReinitializeIntegrator(t_val);
       ConsistentInitialization(t_val, t_eval_next, IDA_YA_YDP_INIT);
+      // Reset the no-progress guard
+      no_progression.Initialize();
     }
 
     t_prev = t_val;
 
     // Progress one step
-    retval = IDASolve(ida_mem, tf, &t_val, yy, yyp, IDA_ONE_STEP);
+    retval = IDASolve(ida_mem, tf_perturbed, &t_val, yy, yyp, IDA_ONE_STEP);
+
+    dt = t_val - t_prev;
+    no_progression.AddDt(dt);
   }
 
   int const length_of_final_sv_slice = save_outputs_only ? number_of_states : 0;
@@ -691,13 +707,11 @@ void IDAKLUSolverOpenMP<ExprSet>::ConsistentInitializationDAE(
   const int& icopt) {
   DEBUG("IDAKLUSolver::ConsistentInitializationDAE");
   // The solver requires a future time point to calculate the direction
-  // of the initial step and its order of magnitude estimate. Add a
-  // small buffer to t_next to ensure that the initialization is
-  // consistent with the solver's roundoff.
-  sunrealtype tout1 = 1.01 * t_next;
-  // Support both forward and backward integration.
-  tout1 += (t_next > t_val) ? 1.0 : -1.0;
-  IDACalcIC(ida_mem, icopt, tout1);
+  // of the initial step and its order of magnitude estimate. Use a
+  // small perturbation that is consistent with the intended direction.
+  const bool increasing = (t_next > t_val);
+  sunrealtype t_next_perturbed = perturb_time(t_next, increasing);
+  IDACalcIC(ida_mem, icopt, t_next_perturbed);
 }
 
 template <class ExprSet>
