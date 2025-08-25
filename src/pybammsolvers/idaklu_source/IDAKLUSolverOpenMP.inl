@@ -525,7 +525,6 @@ SolutionData IDAKLUSolverOpenMP<ExprSet>::solve(
       i_eval++;
       t_eval_next = t_eval[i_eval];
       CheckErrors(IDASetStopTime(ida_mem, t_eval_next));
-      
       // Reinitialize the solver to deal with the discontinuity at t = t_val.
       ReinitializeIntegrator(t_val);
       ConsistentInitialization(t_val, t_eval_next, IDA_YA_YDP_INIT);
