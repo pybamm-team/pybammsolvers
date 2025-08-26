@@ -1,10 +1,6 @@
-cmake_minimum_required(VERSION 3.13)
-cmake_policy(SET CMP0074 NEW)
-set(CMAKE_VERBOSE_MAKEFILE ON)
+cmake_minimum_required(VERSION 3.26)
 
-if (DEFINED Python_EXECUTABLE)
-    set(PYTHON_EXECUTABLE ${Python_EXECUTABLE})
-endif ()
+set(CMAKE_VERBOSE_MAKEFILE ON)
 
 if (DEFINED ENV{VCPKG_ROOT_DIR} AND NOT DEFINED VCPKG_ROOT_DIR)
     set(VCPKG_ROOT_DIR "$ENV{VCPKG_ROOT_DIR}"
@@ -36,6 +32,7 @@ endif ()
 # casadi seems to compile without the newer versions of std::string
 add_compile_definitions(_GLIBCXX_USE_CXX11_ABI=0)
 
+set(PYBIND11_FINDPYTHON ON)
 find_package(pybind11 CONFIG REQUIRED)
 
 # Check Casadi build flag
@@ -97,7 +94,7 @@ endif ()
 
 
 execute_process(
-        COMMAND "${PYTHON_EXECUTABLE}" -c
+        COMMAND "${Python_EXECUTABLE}" -c
         "import pathlib, casadi; print(pathlib.Path(next(iter(casadi.__path__))).joinpath('cmake'))"
         OUTPUT_VARIABLE CASADI_DIR
         OUTPUT_STRIP_TRAILING_WHITESPACE)
