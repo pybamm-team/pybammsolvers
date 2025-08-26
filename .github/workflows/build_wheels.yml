@@ -9,7 +9,7 @@ on:
 
 env:
   CIBW_BUILD_VERBOSITY: 2
-  CIBW_BUILD_FRONTEND: "pip; args: --no-build-isolation"
+  CIBW_BUILD_FRONTEND: "build; args: --no-isolation"
   # Skip PyPy and MUSL builds in any and all jobs
   CIBW_SKIP: "pp* *musllinux*"
   FORCE_COLOR: 3
