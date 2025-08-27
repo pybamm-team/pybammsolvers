@@ -52,7 +52,7 @@ def run_pybamm_requires(session):
 @nox.session(name="unit")
 def run_unit(session):
     set_environment_variables(PYBAMM_ENV, session=session)
-    session.install("setuptools", silent=False)
-    session.install("casadi==3.6.7", silent=False)
-    session.install(".[dev]", silent=False)
+    build_deps = nox.project.load_toml("pyproject.toml")["build-system"]["requires"]
+    session.install(*build_deps)
+    session.install("-e", ".[dev]", "--no-build-isolation", silent=False)
     session.run("pytest", "tests")
