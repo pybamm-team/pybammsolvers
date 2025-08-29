@@ -60,8 +60,15 @@ jobs:
           if-no-files-found: error
 
   build_manylinux_wheels:
-    name: Wheels (Linux)
-    runs-on: ubuntu-latest
+    name: Wheels (Linux ${{ matrix.runs-on[1] }})
+    runs-on: ${{ matrix.runs-on[0] }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runs-on: [
+          ["ubuntu-latest", "x86_64"],
+          ["ubuntu-24.04-arm", "aarch64"]
+        ]
     steps:
       - uses: actions/checkout@v5
         with:
@@ -74,8 +81,10 @@ jobs:
       - name: Build wheels on Linux
         run: pipx run cibuildwheel --output-dir wheelhouse
         env:
-          CIBW_ARCHS_LINUX: x86_64
+          CIBW_ARCHS_LINUX: ${{ matrix.runs-on[1] }}
           CIBW_BEFORE_ALL_LINUX: >
+            yum -y update &&
+            yum -y install epel-release &&
             yum -y install openblas-devel lapack-devel &&
             python install_KLU_Sundials.py
           CIBW_BEFORE_BUILD_LINUX: python -m pip install cmake casadi==3.6.7 setuptools wheel pybind11
@@ -88,7 +97,7 @@ jobs:
       - name: Upload wheels for Linux
         uses: actions/upload-artifact@v4
         with:
-          name: wheels_manylinux
+          name: wheels_manylinux_${{ matrix.runs-on[1] }}
           path: ./wheelhouse/*.whl
           if-no-files-found: error
 
