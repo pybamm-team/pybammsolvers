@@ -42,8 +42,7 @@ jobs:
       - name: Clone PyBaMM repository
         uses: actions/checkout@v5
         with:
-          repository: agriyakhetarpal/PyBaMM
-          ref: test-numpy2-and-python3.13
+          repository: pybamm-team/PyBaMM
           path: PyBaMM
           fetch-depth: 0
           fetch-tags: true
