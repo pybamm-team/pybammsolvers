@@ -51,6 +51,7 @@ jobs:
           cd ../pybammsolvers
           pip uninstall pybammsolvers --yes
           python install_KLU_Sundials.py
+          pip install "numpy>=2" --upgrade
           pip install .
 
           # Run pybamm tests
