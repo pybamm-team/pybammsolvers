@@ -42,7 +42,7 @@ jobs:
       - name: Build and test
         run: |
           cd ..
-          git clone https://github.com/pybamm-team/PyBaMM.git
+          git clone https://github.com/agriyakhetarpal/PyBaMM.git --branch test-numpy2-and-python3.13
           # Install PyBaMM
           cd PyBaMM
           pip install -e ".[all,dev,jax]"
