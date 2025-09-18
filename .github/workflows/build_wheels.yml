@@ -17,7 +17,7 @@ env:
 jobs:
   build_windows_wheels:
     name: Wheels (Windows)
-    runs-on: windows-2022
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
         with:
@@ -26,13 +26,13 @@ jobs:
         with:
           python-version: 3.12
 
-      # Pin to 2024.12.16 to avoid issues with finding SuiteSparse in manifest mode
+      # Pin to 2025.01.13 to avoid issues with finding SuiteSparse in manifest mode
       # after SuiteSparse was split into subpackages in recent vcpkg releases.
       - name: Install vcpkg on Windows
         run: |
           cd C:\
           rm -r -fo 'C:\vcpkg'
-          git clone https://github.com/microsoft/vcpkg --branch 2024.12.16
+          git clone https://github.com/microsoft/vcpkg --branch 2025.01.13
           cd vcpkg
           .\bootstrap-vcpkg.bat
 
