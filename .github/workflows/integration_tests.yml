@@ -51,6 +51,9 @@ jobs:
         run: |
           # Install PyBaMM with dependencies
           cd ./PyBaMM
+
+          # Patch PyBaMM to Python 3.13 compatibility
+          sed -i 's/requires-python = ">=3.10,<3.13"/requires-python = ">=3.10,<3.14"/' pyproject.toml
           pip install -e ".[all,dev,jax]"
           cd ..
 
