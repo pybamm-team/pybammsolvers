@@ -51,8 +51,61 @@ def run_pybamm_requires(session):
 
 @nox.session(name="unit")
 def run_unit(session):
+    """Run the full test suite."""
     set_environment_variables(PYBAMM_ENV, session=session)
     session.install("setuptools", silent=False)
     session.install("casadi==3.6.7", silent=False)
     session.install(".[dev]", silent=False)
-    session.run("pytest", "tests")
+    session.run("pytest", "tests", *session.posargs)
+
+
+@nox.session(name="unit-fast")
+def run_unit_fast(session):
+    """Run fast tests only (excluding slow and integration tests)."""
+    set_environment_variables(PYBAMM_ENV, session=session)
+    session.install("setuptools", silent=False)
+    session.install("casadi==3.6.7", silent=False)
+    session.install(".[dev]", silent=False)
+    session.run(
+        "pytest", "tests", "-m", "not slow and not integration", *session.posargs
+    )
+
+
+@nox.session(name="unit-integration")
+def run_unit_integration(session):
+    """Run integration tests only."""
+    set_environment_variables(PYBAMM_ENV, session=session)
+    session.install("setuptools", silent=False)
+    session.install("casadi==3.6.7", silent=False)
+    session.install(".[dev]", silent=False)
+    session.run("pytest", "tests", "-m", "integration", "-v", *session.posargs)
+
+
+@nox.session(name="unit-performance")
+def run_unit_performance(session):
+    """Run performance tests."""
+    set_environment_variables(PYBAMM_ENV, session=session)
+    session.install("setuptools", silent=False)
+    session.install("casadi==3.6.7", silent=False)
+    session.install(".[dev]", silent=False)
+    # Install optional performance testing dependencies
+    session.install("psutil", silent=False)
+    session.run("pytest", "tests/test_performance.py", "-v", *session.posargs)
+
+
+@nox.session(name="coverage")
+def run_coverage(session):
+    """Run tests with coverage reporting."""
+    set_environment_variables(PYBAMM_ENV, session=session)
+    session.install("setuptools", silent=False)
+    session.install("casadi==3.6.7", silent=False)
+    session.install(".[dev]", silent=False)
+    session.install("pytest-cov", silent=False)
+    session.run(
+        "pytest",
+        "tests",
+        "--cov=pybammsolvers",
+        "--cov-report=html",
+        "--cov-report=term-missing",
+        *session.posargs,
+    )
