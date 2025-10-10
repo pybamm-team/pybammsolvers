@@ -12,7 +12,8 @@ import gc
 class TestVectorIntegration:
     """Test integration between different vector types and operations."""
 
-    @pytest.mark.integration
+    pytestmark = pytest.mark.integration
+
     def test_mixed_vector_operations(self, idaklu_module):
         """Test mixed operations with different array types."""
         nd_vector = idaklu_module.VectorNdArray()
@@ -38,7 +39,8 @@ class TestVectorIntegration:
 class TestErrorRecovery:
     """Test error handling and recovery in integration scenarios."""
 
-    @pytest.mark.integration
+    pytestmark = pytest.mark.integration
+
     def test_partial_failure_recovery(self, idaklu_module):
         """Test recovery from partial failures."""
         vector = idaklu_module.VectorNdArray()
@@ -65,8 +67,6 @@ class TestErrorRecovery:
         vector.append(np.array([5.0, 6.0]))
         assert len(vector) == 3
 
-    @pytest.mark.integration
-    @pytest.mark.slow
     def test_large_data_handling(self, idaklu_module):
         """Test handling of moderately large datasets."""
         vector = idaklu_module.VectorNdArray()
@@ -89,7 +89,8 @@ class TestErrorRecovery:
 class TestMemoryManagement:
     """Test memory management in integration scenarios."""
 
-    @pytest.mark.integration
+    pytestmark = pytest.mark.integration
+
     def test_memory_cleanup_basic(self, idaklu_module):
         """Test that memory is properly cleaned up."""
         vectors = []
@@ -108,7 +109,6 @@ class TestMemoryManagement:
 
         # If we get here without crashing, memory management is working
 
-    @pytest.mark.integration
     def test_solution_vector_memory_cleanup(self, idaklu_module):
         """Test memory cleanup for solution vectors."""
         vectors = []
@@ -125,10 +125,10 @@ class TestMemoryManagement:
         # If we get here without crashing, memory management is working
 
 
-@pytest.mark.integration
-@pytest.mark.slow
 class TestStressConditions:
     """Test behavior under stress conditions."""
+
+    pytestmark = pytest.mark.integration
 
     def test_concurrent_access_simulation(self, idaklu_module):
         """Simulate concurrent access patterns (single-threaded)."""

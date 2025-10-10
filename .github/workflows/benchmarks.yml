@@ -1,4 +1,4 @@
-name: Integration Tests
+name: Benchmarks
 
 on:
   pull_request:
@@ -10,13 +10,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  pybamm_tests:
+  pytest:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [macos-latest]
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.12"]
 
     steps:
       - uses: actions/checkout@v5
@@ -24,6 +24,7 @@ jobs:
           submodules: 'recursive'
 
       - name: Install dependencies (macOS)
+        if: matrix.os == 'macos-15-intel' || matrix.os == 'macos-latest'
         env:
           HOMEBREW_NO_INSTALL_CLEANUP: 1
           HOMEBREW_NO_AUTO_UPDATE: 1
@@ -39,7 +40,10 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Build and test
+      - name: Install nox
         run: |
-          # Use PyBaMM-tests nox session
-          nox -s pybamm-tests
+          pip install nox
+
+      - name: Run benchmarks
+        run: |
+          nox -s benchmarks

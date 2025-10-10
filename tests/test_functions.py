@@ -11,6 +11,8 @@ import numpy as np
 class TestObserveFunction:
     """Test the observe function."""
 
+    pytestmark = pytest.mark.unit
+
     def test_observe_exists(self, idaklu_module):
         """Test that observe function exists."""
         assert hasattr(idaklu_module, "observe")
@@ -31,6 +33,8 @@ class TestObserveFunction:
 
 class TestObserveHermiteInterpFunction:
     """Test the observe_hermite_interp function."""
+
+    pytestmark = pytest.mark.unit
 
     def test_observe_hermite_interp_exists(self, idaklu_module):
         """Test that observe_hermite_interp function exists."""
@@ -54,6 +58,8 @@ class TestObserveHermiteInterpFunction:
 class TestGenerateFunction:
     """Test the generate_function."""
 
+    pytestmark = pytest.mark.unit
+
     def test_generate_function_exists(self, idaklu_module):
         """Test that generate_function exists."""
         assert hasattr(idaklu_module, "generate_function")
@@ -73,6 +79,8 @@ class TestGenerateFunction:
 class TestCreateCasadiSolverGroup:
     """Test the create_casadi_solver_group function."""
 
+    pytestmark = pytest.mark.unit
+
     def test_create_casadi_solver_group_exists(self, idaklu_module):
         """Test that create_casadi_solver_group function exists."""
         assert hasattr(idaklu_module, "create_casadi_solver_group")
@@ -86,6 +94,8 @@ class TestCreateCasadiSolverGroup:
 
 class TestCreateIdakluJax:
     """Test the create_idaklu_jax function."""
+
+    pytestmark = pytest.mark.unit
 
     def test_create_idaklu_jax_exists(self, idaklu_module):
         """Test that create_idaklu_jax function exists."""
@@ -101,6 +111,8 @@ class TestCreateIdakluJax:
 class TestRegistrationsFunction:
     """Test the registrations function."""
 
+    pytestmark = pytest.mark.unit
+
     def test_registrations_exists(self, idaklu_module):
         """Test that registrations function exists."""
         assert hasattr(idaklu_module, "registrations")
@@ -110,4 +122,3 @@ class TestRegistrationsFunction:
         """Test that registrations function can be called."""
         result = idaklu_module.registrations()
         assert result is not None
-

@@ -13,9 +13,12 @@ import contextlib
 class TestImport:
     """Test basic module import functionality."""
 
+    pytestmark = pytest.mark.unit
+
     def test_pybammsolvers_import(self):
         """Test that pybammsolvers can be imported."""
         import pybammsolvers
+
         assert pybammsolvers is not None
 
     def test_idaklu_module_import(self, idaklu_module):
@@ -25,12 +28,15 @@ class TestImport:
     def test_version_import(self):
         """Test that version can be imported."""
         from pybammsolvers.version import __version__
+
         assert __version__ is not None
         assert isinstance(__version__, str)
 
 
 class TestClasses:
     """Test that all expected classes are available."""
+
+    pytestmark = pytest.mark.unit
 
     def test_solver_group_class_exists(self, idaklu_module):
         """Test that IDAKLUSolverGroup class exists."""
@@ -61,6 +67,8 @@ class TestClasses:
 class TestFunctions:
     """Test that all expected functions are available."""
 
+    pytestmark = pytest.mark.unit
+
     @pytest.mark.parametrize(
         "func_name",
         [
@@ -81,6 +89,8 @@ class TestFunctions:
 
 class TestDocumentation:
     """Test module and class documentation."""
+
+    pytestmark = pytest.mark.unit
 
     def test_module_has_docstring(self, idaklu_module):
         """Test that the idaklu module has documentation."""
@@ -124,10 +134,10 @@ class TestDocumentation:
     def test_function_has_signature(self, idaklu_module, func_name):
         """Test that functions have reasonable signatures."""
         func = getattr(idaklu_module, func_name)
-        
+
         # Should be callable
         assert callable(func)
-        
+
         # Try to get signature (might fail for C++ functions)
         try:
             sig = inspect.signature(func)
@@ -139,6 +149,8 @@ class TestDocumentation:
 
 class TestBasicFunctionality:
     """Test basic functionality that doesn't require complex setup."""
+
+    pytestmark = pytest.mark.unit
 
     def test_registrations_function(self, idaklu_module):
         """Test that registrations function can be called."""
@@ -159,6 +171,8 @@ class TestBasicFunctionality:
 class TestErrorHandling:
     """Test error handling for invalid inputs."""
 
+    pytestmark = pytest.mark.unit
+
     def test_generate_function_with_empty_string(self, idaklu_module):
         """Test generate_function with empty string."""
         with pytest.raises(RuntimeError):
@@ -168,4 +182,3 @@ class TestErrorHandling:
         """Test generate_function with invalid CasADi expression."""
         with pytest.raises(RuntimeError):
             idaklu_module.generate_function("invalid_casadi_expression")
-
