@@ -24,6 +24,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "nox[uv]",
     "pytest",
     "pytest-cov",
     "psutil>=7.1.0",
