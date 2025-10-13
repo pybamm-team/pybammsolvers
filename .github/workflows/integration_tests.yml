@@ -39,13 +39,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install uv
+      - name: Install nox, uv
         run: |
-          pip install uv
-
-      - name: Install nox
-        run: |
-          uv pip install nox
+          pip install nox uv
 
       - name: Build and test
         run: |
