@@ -181,6 +181,7 @@ if (${USE_PYTHON_CASADI})
 else ()
     message("Trying to link against any casadi package apart from the Python one")
     find_package(casadi CONFIG REQUIRED)
+    target_link_libraries(idaklu PRIVATE casadi)
 endif ()
 
 # openmp

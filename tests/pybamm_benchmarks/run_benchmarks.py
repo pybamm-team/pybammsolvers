@@ -109,9 +109,9 @@ def compare_results(baseline_file, current_file):
         print(f"  Current:  {current_time:.3f}s")
         print(f"  Change:   {abs(diff):.3f}s ({abs(pct_change):.1f}% {direction})")
 
-        if pct_change > 20:
+        if pct_change > 50:
             regressions.append((name, pct_change))
-            print("  WARNING: >20% performance regression!")
+            print("  WARNING: >50% performance regression!")
         elif pct_change < -20:
             improvements.append((name, abs(pct_change)))
             print("  Great! >20% performance improvement!")

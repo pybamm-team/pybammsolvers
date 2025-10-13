@@ -29,7 +29,7 @@ except (ImportError, AttributeError):
 pytestmark = pytest.mark.benchmark
 
 
-def time_function(func, num_runs=5):
+def time_function(func, num_runs=20):
     """Time a function execution over multiple runs."""
     times = []
     for i in range(num_runs):
