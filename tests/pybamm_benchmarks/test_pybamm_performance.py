@@ -5,7 +5,7 @@ They can be run with vanilla PyBaMM or with pybammsolvers installed.
 Results are saved to JSON for comparison by the benchmark orchestrator.
 """
 
-import time
+import timeit
 import json
 import os
 from pathlib import Path
@@ -24,25 +24,15 @@ try:
 except (ImportError, AttributeError):
     PYBAMMSOLVERS_VERSION = None
 
-
 # Pytest marker for benchmark tests
 pytestmark = pytest.mark.benchmark
 
 
 def time_function(func, num_runs=20):
     """Time a function execution over multiple runs."""
-    times = []
-    for i in range(num_runs):
-        start = time.perf_counter()
-        func()
-        end = time.perf_counter()
-        elapsed = end - start
-        times.append(elapsed)
-        print(f"    Run {i + 1}/{num_runs}: {elapsed:.3f}s")
-
-    avg = sum(times) / len(times)
+    times = timeit.repeat(func, repeat=5, number=num_runs)
     return {
-        "average": avg,
+        "average": sum(times) / len(times),
         "min": min(times),
         "max": max(times),
         "runs": times,
