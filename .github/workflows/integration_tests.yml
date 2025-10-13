@@ -39,11 +39,11 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install nox, uv
+      - name: Install uv
         run: |
-          pip install nox uv
+          pip install uv
 
       - name: Build and test
         run: |
           # Use PyBaMM-tests nox session
-          nox -s pybamm-tests
+          uvx nox -s pybamm-tests
