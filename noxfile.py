@@ -11,9 +11,10 @@ if sys.platform != "win32":
 else:
     nox.options.sessions = ["unit"]
 
-homedir = Path(__file__)
+homedir = Path(__file__).parent.resolve()
 PYBAMM_ENV = {
     "LD_LIBRARY_PATH": f"{homedir}/.idaklu/lib",
+    "DYLD_LIBRARY_PATH": f"{homedir}/.idaklu/lib",
     "PYTHONIOENCODING": "utf-8",
     "MPLBACKEND": "Agg",
     # Expression evaluators (...EXPR_CASADI cannot be fully disabled at this time)

@@ -141,6 +141,8 @@ if (${USE_PYTHON_CASADI})
         # This allows finding casadi in the same Python environment at runtime
         # Module is at: site-packages/pybammsolvers/idaklu.so
         # CasADi is at: site-packages/casadi/libcasadi.dylib
+        # SuiteSparse/SUNDIALS are found via DYLD_LIBRARY_PATH/LD_LIBRARY_PATH
+        # (set by noxfile or user environment) pointing to .idaklu/lib
         # Note: Windows uses vcpkg with static linking, no RPATH needed
         if (APPLE)
             set_target_properties(
@@ -148,7 +150,7 @@ if (${USE_PYTHON_CASADI})
                     BUILD_RPATH "${CASADI_LIB_DIR}"
                     BUILD_RPATH_USE_LINK_PATH FALSE
                     INSTALL_RPATH "@loader_path/../casadi"
-                    BUILD_WITH_INSTALL_RPATH FALSE
+                    BUILD_WITH_INSTALL_RPATH TRUE
             )
         else()
             set_target_properties(
@@ -156,7 +158,7 @@ if (${USE_PYTHON_CASADI})
                     BUILD_RPATH "${CASADI_LIB_DIR}"
                     BUILD_RPATH_USE_LINK_PATH FALSE
                     INSTALL_RPATH "$ORIGIN/../casadi"
-                    BUILD_WITH_INSTALL_RPATH FALSE
+                    BUILD_WITH_INSTALL_RPATH TRUE
             )
         endif()
         # Link against casadi by name, not absolute path, to avoid issues with
