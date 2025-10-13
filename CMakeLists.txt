@@ -144,13 +144,24 @@ if (${USE_PYTHON_CASADI})
         # SuiteSparse/SUNDIALS are found via DYLD_LIBRARY_PATH/LD_LIBRARY_PATH
         # (set by noxfile or user environment) pointing to .idaklu/lib
         # Note: Windows uses vcpkg with static linking, no RPATH needed
+        
+        # For CI wheel builds, use BUILD_WITH_INSTALL_RPATH=FALSE so that
+        # wheel repair tools (delocate/auditwheel) can properly analyze dependencies.
+        # For local development, use BUILD_WITH_INSTALL_RPATH=TRUE so the module
+        # works immediately after pip install without wheel repair.
+        if(DEFINED ENV{CIBUILDWHEEL})
+            set(USE_INSTALL_RPATH_AT_BUILD FALSE)
+        else()
+            set(USE_INSTALL_RPATH_AT_BUILD TRUE)
+        endif()
+        
         if (APPLE)
             set_target_properties(
                     idaklu PROPERTIES
                     BUILD_RPATH "${CASADI_LIB_DIR}"
                     BUILD_RPATH_USE_LINK_PATH FALSE
                     INSTALL_RPATH "@loader_path/../casadi"
-                    BUILD_WITH_INSTALL_RPATH TRUE
+                    BUILD_WITH_INSTALL_RPATH ${USE_INSTALL_RPATH_AT_BUILD}
             )
         else()
             set_target_properties(
@@ -158,7 +169,7 @@ if (${USE_PYTHON_CASADI})
                     BUILD_RPATH "${CASADI_LIB_DIR}"
                     BUILD_RPATH_USE_LINK_PATH FALSE
                     INSTALL_RPATH "$ORIGIN/../casadi"
-                    BUILD_WITH_INSTALL_RPATH TRUE
+                    BUILD_WITH_INSTALL_RPATH ${USE_INSTALL_RPATH_AT_BUILD}
             )
         endif()
         # Link against casadi by name, not absolute path, to avoid issues with
