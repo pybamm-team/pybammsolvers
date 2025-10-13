@@ -88,20 +88,20 @@ def compare_results(baseline_file, current_file):
 
     for name in sorted(baseline_benchmarks.keys()):
         if name not in current_benchmarks:
-            print(f"\n⚠️  {name}: Not found in current results")
+            print(f"\n{name}: Not found in current results")
             continue
 
         baseline_time = baseline_benchmarks[name].get("average")
         current_time = current_benchmarks[name].get("average")
 
         if baseline_time is None or current_time is None:
-            print(f"\n⚠️  {name}: Missing timing data")
+            print(f"\n{name}: Missing timing data")
             continue
 
         diff = current_time - baseline_time
         pct_change = (diff / baseline_time) * 100
 
-        status = "⚠️" if abs(pct_change) > 10 else "✓"
+        status = "WARNING" if abs(pct_change) > 10 else "OK"
         direction = "slower" if diff > 0 else "faster"
 
         print(f"\n{status} {name}:")
@@ -111,27 +111,27 @@ def compare_results(baseline_file, current_file):
 
         if pct_change > 20:
             regressions.append((name, pct_change))
-            print("  ⚠️  WARNING: >20% performance regression!")
+            print("  WARNING: >20% performance regression!")
         elif pct_change < -20:
             improvements.append((name, abs(pct_change)))
-            print("  ✓ Great! >20% performance improvement!")
+            print("  Great! >20% performance improvement!")
 
     print("\n" + "=" * 60)
     print("SUMMARY")
     print("=" * 60)
 
     if regressions:
-        print(f"\n⚠️  {len(regressions)} REGRESSION(S) DETECTED:")
+        print(f"\n{len(regressions)} REGRESSION(S) DETECTED:")
         for name, pct in regressions:
             print(f"  - {name}: {pct:.1f}% slower")
         return False
 
     if improvements:
-        print(f"\n✓ {len(improvements)} IMPROVEMENT(S):")
+        print(f"\n{len(improvements)} IMPROVEMENT(S):")
         for name, pct in improvements:
             print(f"  - {name}: {pct:.1f}% faster")
 
-    print("\n✓ No significant regressions detected")
+    print("\nNo significant regressions detected")
     return True
 
 
@@ -162,7 +162,7 @@ def main():
     )
 
     if not run_benchmark_suite(baseline_results, "Baseline (vanilla PyBaMM)"):
-        print("\n❌ Baseline benchmark suite failed!")
+        print("\nBaseline benchmark suite failed!")
         return 1
 
     # Step 2: Install local pybammsolvers
@@ -173,17 +173,17 @@ def main():
     )
 
     if result.returncode != 0:
-        print("❌ Failed to install local pybammsolvers!")
+        print("Failed to install local pybammsolvers!")
         print(result.stderr)
         return 1
 
-    print("✓ Local pybammsolvers installed")
+    print("Local pybammsolvers installed")
 
     # Step 3: Run current benchmarks (with local pybammsolvers)
     print("\n[3/4] Running benchmarks with local pybammsolvers...")
 
     if not run_benchmark_suite(current_results, "Current (with pybammsolvers)"):
-        print("\n❌ Current benchmark suite failed!")
+        print("\nCurrent benchmark suite failed!")
         return 1
 
     # Step 4: Compare results
@@ -225,7 +225,7 @@ def main():
     with open(comparison_file, "w") as f:
         json.dump(history, f, indent=2)
 
-    print(f"\n✓ Results saved to {comparison_file}")
+    print(f"\nResults saved to {comparison_file}")
 
     # Clean up temporary files
     baseline_results.unlink(missing_ok=True)

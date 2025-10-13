@@ -43,24 +43,24 @@ The script will:
 
 ```
 [1/4] Running baseline benchmarks with vanilla PyBaMM...
-✓ SPM 1-hour discharge:
+SPM 1-hour discharge:
   Average: 2.380s
 
 [2/4] Installing local pybammsolvers...
-✓ Local pybammsolvers installed
+Local pybammsolvers installed
 
 [3/4] Running benchmarks with local pybammsolvers...
-✓ SPM 1-hour discharge:
+SPM 1-hour discharge:
   Average: 2.290s
 
 [4/4] Comparing results...
-✓ SPM 1-hour discharge:
+SPM 1-hour discharge:
   Baseline: 2.380s
   Current:  2.290s
   Change:   0.090s (3.8% faster)
 
 SUMMARY
 ============================================================
-✓ No significant regressions detected
+No significant regressions detected
 ```
 
