@@ -72,7 +72,7 @@ class TestErrorRecovery:
         vector = idaklu_module.VectorNdArray()
 
         large_arrays = []
-        for i in range(10):
+        for _i in range(10):
             arr = np.random.rand(100, 50).astype(np.float64)
             large_arrays.append(arr)
             vector.append(arr)
