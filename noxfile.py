@@ -96,7 +96,7 @@ def run_integration(session):
     session.install("-e", ".", "--no-deps", silent=False)
 
     # Run integration tests
-    session.run("pytest", "tests", "-m", "integration", "-v", *session.posargs)
+    session.run("pytest", "tests", "-m", "integration", *session.posargs)
 
 
 @nox.session(name="benchmarks")
