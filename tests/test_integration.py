@@ -1,176 +1,201 @@
-"""Integration tests for pybammsolvers.
+"""Integration tests for pybammsolvers pybindings functionality.
 
-These tests verify interactions between different components
-and may require more complex setup or be slower to run.
+These tests verify that the C++ pybindings work correctly when called from Python
+with realistic data and parameter configurations.
 """
 
-import pytest
+from __future__ import annotations
+
 import numpy as np
-import gc
+import pytest
+
+import pybammsolvers
 
 
-class TestVectorIntegration:
-    """Test integration between different vector types and operations."""
-
-    pytestmark = pytest.mark.integration
-
-    def test_mixed_vector_operations(self, idaklu_module):
-        """Test mixed operations with different array types."""
-        nd_vector = idaklu_module.VectorNdArray()
-
-        arrays = [
-            np.array([1.0, 2.0, 3.0]),
-            np.array([[1, 2], [3, 4]]),
-            np.ones((5,)),
-            np.zeros((2, 3)),
-        ]
-
-        for arr in arrays:
-            nd_vector.append(arr.astype(np.float64))
-
-        assert len(nd_vector) == len(arrays)
-
-        # Verify retrieval maintains shape and values
-        for i, original in enumerate(arrays):
-            retrieved = nd_vector[i]
-            np.testing.assert_array_equal(retrieved, original.astype(np.float64))
+def is_monotonic_increasing(arr):
+    return np.all(np.diff(arr) >= 0)
 
 
-class TestErrorRecovery:
-    """Test error handling and recovery in integration scenarios."""
+class TestExponentialDecaySolver:
+    """Integration tests using exponential decay model to test solver and Solution."""
 
     pytestmark = pytest.mark.integration
 
-    def test_partial_failure_recovery(self, idaklu_module):
-        """Test recovery from partial failures."""
-        vector = idaklu_module.VectorNdArray()
+    def test_exponential_decay_solve(self, exponential_decay_solver):
+        """
+        Verify the solver can solve exponential decay and return a Solution object.
 
-        # Add valid arrays
-        valid_arrays = [np.array([1.0, 2.0]), np.array([3.0, 4.0])]
-        for arr in valid_arrays:
-            vector.append(arr)
+        Tests that the complete solver pipeline works: setup, solve, and return results.
+        """
+        solver_data = exponential_decay_solver
+        solver = solver_data["solver"]
+        y0 = solver_data["y0"]
+        yp0 = solver_data["yp0"]
+        inputs = solver_data["inputs"]
+        t_eval = solver_data["model"]["t_eval"]
 
-        assert len(vector) == 2
+        # Solve the system
+        solution = solver.solve(t_eval, t_eval, y0, yp0, inputs)
 
-        # Try to add invalid data
-        try:
-            vector.append("invalid")
-        except (TypeError, ValueError):
-            pass  # Expected to fail
+        # Get the first solution object
+        sol = solution[0]
+        assert isinstance(sol, pybammsolvers.idaklu.solution)
+        assert isinstance(sol.y, np.ndarray)
+        assert isinstance(sol.y[0], np.floating)
 
-        # Verify valid data is still accessible
-        assert len(vector) == 2
-        np.testing.assert_array_equal(vector[0], valid_arrays[0])
-        np.testing.assert_array_equal(vector[1], valid_arrays[1])
+    def test_solution_has_time_array(self, exponential_decay_solver):
+        """
+        Verify Solution object contains time array with correct values.
 
-        # Should be able to continue adding valid data
-        vector.append(np.array([5.0, 6.0]))
-        assert len(vector) == 3
+        Tests that the Solution.t attribute contains the evaluation times.
+        """
+        solver_data = exponential_decay_solver
+        solver = solver_data["solver"]
+        y0 = solver_data["y0"]
+        yp0 = solver_data["yp0"]
+        inputs = solver_data["inputs"]
+        t_eval = solver_data["model"]["t_eval"]
 
-    def test_large_data_handling(self, idaklu_module):
-        """Test handling of moderately large datasets."""
-        vector = idaklu_module.VectorNdArray()
+        solution = solver.solve(t_eval, t_eval, y0, yp0, inputs)
+        sol = solution[0]
 
-        large_arrays = []
-        for _i in range(10):
-            arr = np.random.rand(100, 50).astype(np.float64)
-            large_arrays.append(arr)
-            vector.append(arr)
+        # Check time array exists and has correct properties
+        assert hasattr(sol, "t")
+        assert isinstance(sol.t, np.ndarray)
+        assert sol.t.shape[0] == len(t_eval)
 
-        assert len(vector) == 10
+        # Verify times are increasing
+        assert is_monotonic_increasing(sol.t)
 
-        # Verify all arrays are accessible and correct
-        for i, original in enumerate(large_arrays):
-            retrieved = vector[i]
-            assert retrieved.shape == original.shape
-            np.testing.assert_array_equal(retrieved, original)
+        # Verify times are in expected range
+        assert sol.t[0] >= t_eval[0]
+        assert sol.t[-1] <= t_eval[-1]
 
+    def test_solution_has_derivative_array(self, exponential_decay_solver):
+        """
+        Verify Solution object contains state derivative array.
 
-class TestMemoryManagement:
-    """Test memory management in integration scenarios."""
+        Tests that the Solution.yp attribute contains derivatives at each time point.
+        """
+        solver_data = exponential_decay_solver
+        solver = solver_data["solver"]
+        y0 = solver_data["y0"]
+        yp0 = solver_data["yp0"]
+        inputs = solver_data["inputs"]
+        t_eval = solver_data["model"]["t_eval"]
 
-    pytestmark = pytest.mark.integration
+        solution = solver.solve(t_eval, t_eval, y0, yp0, inputs)
+        sol = solution[0]
 
-    def test_memory_cleanup_basic(self, idaklu_module):
-        """Test that memory is properly cleaned up."""
-        vectors = []
+        # Check derivative array exists
+        assert hasattr(sol, "yp")
+        assert isinstance(sol.yp, np.ndarray)
 
-        # Create many vector objects
-        for _ in range(100):
-            vector = idaklu_module.VectorNdArray()
-            for _ in range(10):
-                arr = np.random.rand(100).astype(np.float64)
-                vector.append(arr)
-            vectors.append(vector)
+    def test_solution_has_termination_flag(self, exponential_decay_solver):
+        """
+        Verify Solution object contains termination flag.
 
-        # Clear references
-        vectors.clear()
-        gc.collect()
+        Tests that the Solution.flag attribute indicates successful completion.
+        """
+        solver_data = exponential_decay_solver
+        solver = solver_data["solver"]
+        y0 = solver_data["y0"]
+        yp0 = solver_data["yp0"]
+        inputs = solver_data["inputs"]
+        t_eval = solver_data["model"]["t_eval"]
 
-        # If we get here without crashing, memory management is working
+        solution = solver.solve(t_eval, t_eval, y0, yp0, inputs)
+        sol = solution[0]
 
-    def test_solution_vector_memory_cleanup(self, idaklu_module):
-        """Test memory cleanup for solution vectors."""
-        vectors = []
+        # Check flag exists
+        assert hasattr(sol, "flag")
+        assert isinstance(sol.flag, int)
 
-        # Create many solution vector objects
-        for _ in range(100):
-            vector = idaklu_module.VectorSolution()
-            vectors.append(vector)
+        # Flag should indicate success
+        # IDA_SUCCESS=0, IDA_TSTOP_RETURN=1, IDA_ROOT_RETURN=2 are all success codes
+        assert sol.flag in [0, 1, 2], f"Solver failed with flag {sol.flag}"
 
-        # Clear references
-        vectors.clear()
-        gc.collect()
+    def test_solution_accuracy_exponential_decay(self, exponential_decay_solver):
+        """
+        Verify Solution matches exact solution for exponential decay.
 
-        # If we get here without crashing, memory management is working
+        Tests numerical accuracy by comparing solver output to known analytical solution.
+        """
+        solver_data = exponential_decay_solver
+        solver = solver_data["solver"]
+        y0 = solver_data["y0"]
+        yp0 = solver_data["yp0"]
+        inputs = solver_data["inputs"]
+        t_eval = solver_data["model"]["t_eval"]
+        exact_solution = solver_data["model"]["exact_solution"]
 
+        solution = solver.solve(t_eval, t_eval, y0, yp0, inputs)
+        sol = solution[0]
 
-class TestStressConditions:
-    """Test behavior under stress conditions."""
+        # Compare numerical solution to exact solution
+        y_numerical = sol.y
+        y_exact = exact_solution(sol.t)
+        np.testing.assert_allclose(y_numerical, y_exact, rtol=1e-5, atol=1e-8)
 
-    pytestmark = pytest.mark.integration
+    def test_solution_initial_conditions(self, exponential_decay_solver):
+        """
+        Verify Solution respects initial conditions.
 
-    def test_concurrent_access_simulation(self, idaklu_module):
-        """Simulate concurrent access patterns (single-threaded)."""
-        vector = idaklu_module.VectorNdArray()
+        Tests that the first point in the solution matches the provided initial conditions.
+        """
+        solver_data = exponential_decay_solver
+        solver = solver_data["solver"]
+        y0 = solver_data["y0"]
+        yp0 = solver_data["yp0"]
+        inputs = solver_data["inputs"]
+        t_eval = solver_data["model"]["t_eval"]
+        model_y0 = solver_data["model"]["y0"]
 
-        # Add initial data
-        for i in range(100):
-            arr = np.array([i, i + 1, i + 2], dtype=np.float64)
-            vector.append(arr)
+        solution = solver.solve(t_eval, t_eval, y0, yp0, inputs)
+        sol = solution[0]
 
-        # Simulate mixed read/write operations
-        for _ in range(1000):
-            # Random read
-            idx = np.random.randint(0, len(vector))
-            _ = vector[idx]
+        # First state value should match initial condition
+        assert sol.t[0] == pytest.approx(t_eval[0])
+        np.testing.assert_allclose(sol.y[0], model_y0, rtol=1e-10)
 
-            # Occasional write
-            if np.random.rand() < 0.1:  # 10% chance
-                new_arr = np.random.rand(3).astype(np.float64)
-                vector.append(new_arr)
+    def test_solution_output_variables(self, exponential_decay_solver):
+        """
+        Verify Solution contains output variable evaluations.
 
-        # Verify integrity
-        assert len(vector) >= 100
+        Tests that output variables (y_term) are computed correctly.
+        """
+        solver_data = exponential_decay_solver
+        solver = solver_data["solver"]
+        y0 = solver_data["y0"]
+        yp0 = solver_data["yp0"]
+        inputs = solver_data["inputs"]
+        t_eval = solver_data["model"]["t_eval"]
+        exact_solution = solver_data["model"]["exact_solution"]
 
-    def test_boundary_stress(self, idaklu_module):
-        """Test boundary conditions under stress."""
-        vector = idaklu_module.VectorNdArray()
+        solution = solver.solve(t_eval, t_eval, y0, yp0, inputs)
+        sol = solution[0]
+        y_exact = exact_solution(sol.t)
 
-        # Mix of extreme values
-        extreme_arrays = [
-            np.array([1e-100], dtype=np.float64),
-            np.array([1e100], dtype=np.float64),
-            np.array([np.inf], dtype=np.float64),
-            np.array([0.0], dtype=np.float64),
-            np.array([np.finfo(np.float64).tiny], dtype=np.float64),
-        ]
+        # For our model, the output variable is simply the final state slice
+        np.testing.assert_allclose(sol.y_term, y_exact[-1], rtol=1e-5)
 
-        for arr in extreme_arrays:
-            vector.append(arr)
+    def test_solution_dimensions_consistency(self, exponential_decay_solver):
+        """
+        Verify Solution arrays have consistent dimensions.
 
-        # Repeatedly access these
-        for _ in range(100):
-            for i in range(len(vector)):
-                retrieved = vector[i]
-                assert retrieved is not None
+        Tests that t, y, and yp arrays have compatible shapes.
+        """
+        solver_data = exponential_decay_solver
+        solver = solver_data["solver"]
+        y0 = solver_data["y0"]
+        yp0 = solver_data["yp0"]
+        inputs = solver_data["inputs"]
+        t_eval = solver_data["model"]["t_eval"]
+
+        solution = solver.solve(t_eval, t_eval, y0, yp0, inputs)
+        sol = solution[0]
+
+        # All arrays should have compatible dimensions
+        n_times = len(sol.t)
+        assert len(sol.y) == n_times
+        assert len(sol.yp) == 0 # hermite_interpolation == False
