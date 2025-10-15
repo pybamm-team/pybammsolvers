@@ -198,4 +198,4 @@ class TestExponentialDecaySolver:
         # All arrays should have compatible dimensions
         n_times = len(sol.t)
         assert len(sol.y) == n_times
-        assert len(sol.yp) == 0 # hermite_interpolation == False
+        assert len(sol.yp) == 0  # hermite_interpolation == False
