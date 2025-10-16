@@ -92,7 +92,7 @@ def exponential_decay_solver(idaklu_module, exponential_decay_model):
     p_sym = casadi.MX.sym("p", n_inputs)
 
     # RHS function: For ODE dy/dt = -k*y
-    rhs = casadi.vertcat(-p_sym[0] * y_sym[0])
+    rhs = -p_sym * y_sym
 
     # Create RHS function: t, y, inputs
     rhs_alg = casadi.Function("rhs_alg", [t_sym, y_sym, p_sym], [rhs])
@@ -102,7 +102,7 @@ def exponential_decay_solver(idaklu_module, exponential_decay_model):
     # mass_matrix = 1 (identity for ODE)
     # So: jac_times_cjmass = -k - cj * 1 = -k - cj
     cj_sym = casadi.MX.sym("cj")
-    jac_result = casadi.vertcat(-p_sym[0] - cj_sym)
+    jac_result = casadi.vertcat(-p_sym - cj_sym)
     jac_times_cjmass = casadi.Function(
         "jac_times_cjmass", [t_sym, y_sym, p_sym, cj_sym], [jac_result]
     )
@@ -120,7 +120,7 @@ def exponential_decay_solver(idaklu_module, exponential_decay_model):
 
     # Jacobian action (for matrix-free methods): d(rhs)/dy @ v
     # For rhs = -k*y: d(rhs)/dy = -k, so jac_action = -k * v
-    jac_action_result = casadi.vertcat(-p_sym[0] * v_sym[0])
+    jac_action_result = -p_sym * v_sym
     jac_action = casadi.Function(
         "jac_action", [t_sym, y_sym, p_sym, v_sym], [jac_action_result]
     )
@@ -149,7 +149,7 @@ def exponential_decay_solver(idaklu_module, exponential_decay_model):
     rtol = 1e-8
 
     # Output variables (just return the state itself as a vector)
-    var_fcn = casadi.Function("var", [t_sym, y_sym, p_sym], [casadi.vertcat(y_sym[0])])
+    var_fcn = casadi.Function("var", [t_sym, y_sym, p_sym], [y_sym])
     var_fcns = [idaklu_module.generate_function(var_fcn.serialize())]
 
     # Sensitivities of output wrt states and params
