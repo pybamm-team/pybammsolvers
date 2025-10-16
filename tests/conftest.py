@@ -6,14 +6,6 @@ import pytest
 import os
 import numpy as np
 
-try:
-    import casadi
-
-    CASADI_AVAILABLE = True
-except ImportError:
-    CASADI_AVAILABLE = False
-
-
 def pytest_configure(config):
     """Configure pytest with custom markers."""
     config.addinivalue_line("markers", "integration: marks tests as integration tests")
@@ -56,8 +48,6 @@ def exponential_decay_model():
     - 't_eval': evaluation times
     - 'exact_solution': function to compute exact solution at any time
     """
-    if not CASADI_AVAILABLE:
-        pytest.skip("CasADi not available")
 
     # Model parameters
     k = 0.5  # decay constant
@@ -84,8 +74,7 @@ def exponential_decay_solver(idaklu_module, exponential_decay_model):
     Sets up a complete IDAKLU solver instance with the exponential decay
     ODE system ready to solve.
     """
-    if not CASADI_AVAILABLE:
-        pytest.skip("CasADi not available")
+    casadi = pytest.importorskip("casadi")
 
     # Model parameters
     k = exponential_decay_model["k"]

@@ -1,6 +1,6 @@
 """Integration tests for pybammsolvers pybindings functionality.
 
-These tests verify that the C++ pybindings work correctly when called from Python
+These tests verify that the C++ bindings work correctly when called from Python
 with realistic data and parameter configurations.
 """
 
