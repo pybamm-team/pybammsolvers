@@ -18,10 +18,12 @@ class TestPackageStructure:
         bindings with KLU sparse linear solver support.
         """
         import pybammsolvers
+
         assert hasattr(pybammsolvers, "idaklu")
 
         # Ensure the idaklu C++ extension module is importable
         import pybammsolvers.idaklu
+
         assert pybammsolvers.idaklu is not None
 
         # Versioning
@@ -45,7 +47,7 @@ class TestPackageStructure:
 
         # Solver classes
         assert hasattr(idaklu_module, "IDAKLUSolverGroup")
-        
+
         # Core functions
         assert hasattr(idaklu_module, "create_casadi_solver_group")
         assert hasattr(idaklu_module, "generate_function")
