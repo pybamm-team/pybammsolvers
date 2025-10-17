@@ -92,7 +92,7 @@ def exponential_decay_solver(idaklu_module, exponential_decay_model):
     p_sym = casadi.MX.sym("p", n_inputs)
 
     # RHS function: For ODE dy/dt = -k*y
-    rhs = -p_sym * y_sym
+    rhs = -1.0 * p_sym * y_sym
 
     # Create RHS function: t, y, inputs
     rhs_alg = casadi.Function("rhs_alg", [t_sym, y_sym, p_sym], [rhs])
@@ -120,7 +120,7 @@ def exponential_decay_solver(idaklu_module, exponential_decay_model):
 
     # Jacobian action (for matrix-free methods): d(rhs)/dy @ v
     # For rhs = -k*y: d(rhs)/dy = -k, so jac_action = -k * v
-    jac_action_result = -p_sym * v_sym
+    jac_action_result = -1.0 * p_sym * v_sym
     jac_action = casadi.Function(
         "jac_action", [t_sym, y_sym, p_sym, v_sym], [jac_action_result]
     )
