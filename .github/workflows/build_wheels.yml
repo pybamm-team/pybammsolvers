@@ -177,8 +177,6 @@ jobs:
               delocate-listdeps {wheel} && delocate-wheel -v -w {dest_dir} {wheel} --require-target-macos-version 11.1
               for file in {dest_dir}/*.whl; do mv "$file" "${file//macosx_11_1/macosx_11_0}"; done
             fi
-          # Skip tests for MacOS-Intel due to upstream bug
-          CIBW_TEST_SKIP: "cp*-macosx_x86_64" 
           CIBW_TEST_EXTRAS: "dev"
           CIBW_TEST_COMMAND: |
             set -e -x

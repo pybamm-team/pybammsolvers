@@ -5,6 +5,8 @@ from __future__ import annotations
 import pytest
 import os
 import numpy as np
+import sys
+import platform
 
 
 def pytest_configure(config):
@@ -75,6 +77,10 @@ def exponential_decay_solver(idaklu_module, exponential_decay_model):
     Sets up a complete IDAKLU solver instance with the exponential decay
     ODE system ready to solve.
     """
+    # Skip tests using this fixture on macOS Intel
+    if sys.platform == "darwin" and platform.machine() != "arm64":
+        pytest.skip("Skipping exponential_decay_solver tests on macOS Intel")
+
     casadi = pytest.importorskip("casadi")
 
     # Model parameters
