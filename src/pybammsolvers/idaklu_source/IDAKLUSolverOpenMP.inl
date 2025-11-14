@@ -43,7 +43,7 @@ IDAKLUSolverOpenMP<ExprSet>::IDAKLUSolverOpenMP(
   SUNContext_Create(NULL, &sunctx);  // calls null-wrapper if Sundials Ver<6
   
   // Error messages are handled in PyBaMM, silence them except in debug mode
-  #ifdef NDEBUG
+  #ifdef NDEBUG && defined(SUNDIALS_VERSION_MAJOR) && SUNDIALS_VERSION_MAJOR >= 7
     SUNContext_ClearErrHandlers(sunctx);
   #endif
 

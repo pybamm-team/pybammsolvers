@@ -44,7 +44,6 @@ find_path(SUNDIALS_INCLUDE_DIR
   )
 
 set(SUNDIALS_WANT_COMPONENTS
-  sundials_core
   sundials_idas
   sundials_sunlinsolklu
   sundials_sunlinsoldense
