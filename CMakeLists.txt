@@ -203,22 +203,10 @@ endif ()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR})
 # Sundials
-if (DEFINED VCPKG_ROOT_DIR)
-    # vcpkg provides SUNDIALS via CMake config mode
-    find_package(SUNDIALS CONFIG REQUIRED)
-    # Link IDAS solver - this pulls in most dependencies transitively
-    target_link_libraries(idaklu PRIVATE SUNDIALS::idas)
-    # For SUNDIALS >= 7, explicitly link sundials_core for SUNContext_ClearErrHandlers
-    if(TARGET SUNDIALS::core)
-        target_link_libraries(idaklu PRIVATE SUNDIALS::core)
-    endif()
-else()
-    # Use custom FindSUNDIALS.cmake module
-    find_package(SUNDIALS REQUIRED)
-    message("SUNDIALS found in ${SUNDIALS_INCLUDE_DIR}: ${SUNDIALS_LIBRARIES}")
-    target_include_directories(idaklu PRIVATE ${SUNDIALS_INCLUDE_DIR})
-    target_link_libraries(idaklu PRIVATE ${SUNDIALS_LIBRARIES})
-endif()
+find_package(SUNDIALS REQUIRED)
+message("SUNDIALS found in ${SUNDIALS_INCLUDE_DIR}: ${SUNDIALS_LIBRARIES}")
+target_include_directories(idaklu PRIVATE ${SUNDIALS_INCLUDE_DIR})
+target_link_libraries(idaklu PRIVATE ${SUNDIALS_LIBRARIES})
 
 # link suitesparse
 # if using vcpkg, use config mode to
