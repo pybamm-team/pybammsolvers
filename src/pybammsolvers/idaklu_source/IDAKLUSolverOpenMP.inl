@@ -552,10 +552,11 @@ SolutionData IDAKLUSolverOpenMP<ExprSet>::solve(
   }
 
   int const length_of_final_sv_slice = save_outputs_only ? number_of_states : 0;
-  sunrealtype *yterm_return = new sunrealtype[length_of_final_sv_slice];
+  // Use unique_ptr for automatic memory management (RAII)
+  auto yterm_return = std::make_unique<sunrealtype[]>(length_of_final_sv_slice);
   if (save_outputs_only) {
-    // store final state slice if outout variables are specified
-    std::memcpy(yterm_return, y_val, length_of_final_sv_slice * sizeof(sunrealtype*));
+    // store final state slice if output variables are specified
+    std::memcpy(yterm_return.get(), y_val, length_of_final_sv_slice * sizeof(sunrealtype));
   }
 
   if (solver_opts.print_stats) {
@@ -566,15 +567,16 @@ SolutionData IDAKLUSolverOpenMP<ExprSet>::solve(
   number_of_timesteps = i_save;
 
   // Copy the data to return as numpy arrays
+  // Use unique_ptr for automatic memory management (RAII)
 
   // Time, t
-  sunrealtype *t_return = new sunrealtype[number_of_timesteps];
+  auto t_return = std::make_unique<sunrealtype[]>(number_of_timesteps);
   for (size_t i = 0; i < number_of_timesteps; i++) {
     t_return[i] = t[i];
   }
 
   // States, y
-  sunrealtype *y_return = new sunrealtype[number_of_timesteps * length_of_return_vector];
+  auto y_return = std::make_unique<sunrealtype[]>(number_of_timesteps * length_of_return_vector);
   int count = 0;
   for (size_t i = 0; i < number_of_timesteps; i++) {
     for (size_t j = 0; j < length_of_return_vector; j++) {
@@ -590,7 +592,7 @@ SolutionData IDAKLUSolverOpenMP<ExprSet>::solve(
   auto const arg_sens1 = (save_outputs_only ? length_of_return_vector : number_of_timesteps);
   auto const arg_sens2 = (save_outputs_only ? number_of_parameters : length_of_return_vector);
 
-  sunrealtype *yS_return = new sunrealtype[arg_sens0 * arg_sens1 * arg_sens2];
+  auto yS_return = std::make_unique<sunrealtype[]>(arg_sens0 * arg_sens1 * arg_sens2);
   count = 0;
   for (size_t idx0 = 0; idx0 < arg_sens0; idx0++) {
     for (size_t idx1 = 0; idx1 < arg_sens1; idx1++) {
@@ -605,8 +607,10 @@ SolutionData IDAKLUSolverOpenMP<ExprSet>::solve(
     }
   }
 
-  sunrealtype *yp_return = new sunrealtype[(save_hermite ? 1 : 0) * (number_of_timesteps * number_of_states)];
-  sunrealtype *ypS_return = new sunrealtype[(save_hermite ? 1 : 0) * (arg_sens0 * arg_sens1 * arg_sens2)];
+  const size_t yp_size = (save_hermite ? 1 : 0) * (number_of_timesteps * number_of_states);
+  const size_t ypS_size = (save_hermite ? 1 : 0) * (arg_sens0 * arg_sens1 * arg_sens2);
+  auto yp_return = std::make_unique<sunrealtype[]>(yp_size);
+  auto ypS_return = std::make_unique<sunrealtype[]>(ypS_size);
   if (save_hermite) {
     count = 0;
     for (size_t i = 0; i < number_of_timesteps; i++) {
@@ -634,6 +638,7 @@ SolutionData IDAKLUSolverOpenMP<ExprSet>::solve(
     }
   }
 
+  // Transfer ownership of raw pointers to SolutionData using release()
   return SolutionData(
     retval,
     number_of_timesteps,
@@ -643,12 +648,12 @@ SolutionData IDAKLUSolverOpenMP<ExprSet>::solve(
     arg_sens2,
     length_of_final_sv_slice,
     save_hermite,
-    t_return,
-    y_return,
-    yp_return,
-    yS_return,
-    ypS_return,
-    yterm_return);
+    t_return.release(),
+    y_return.release(),
+    yp_return.release(),
+    yS_return.release(),
+    ypS_return.release(),
+    yterm_return.release());
 }
 
 template <class ExprSet>

@@ -4,6 +4,7 @@
 #include "IDAKLUSolver.hpp"
 #include "common.hpp"
 #include <vector>
+#include <memory>  // For std::make_unique
 using std::vector;
 
 #include "Options.hpp"

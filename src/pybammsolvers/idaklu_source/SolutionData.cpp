@@ -1,6 +1,9 @@
 #include "SolutionData.hpp"
 
 Solution SolutionData::generate_solution() {
+  // Mark ownership as transferred to prevent double-free in destructor
+  ownership_transferred = true;
+
   py::capsule free_t_when_done(
     t_return,
     [](void *f) {
