@@ -164,6 +164,11 @@ public:
   void CheckErrors(int const & flag);
 
   /**
+   * @brief Check the return flag for errors with context
+   */
+  void CheckErrors(int const & flag, const char* context);
+
+  /**
    * @brief Print the solver statistics
    */
   void PrintStats();
