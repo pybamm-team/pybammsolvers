@@ -663,7 +663,7 @@ SolutionData IDAKLUSolverOpenMP<ExprSet>::solve(
     }
   }
 
-  // Transfer ownership of raw pointers to SolutionData using release()
+  // Transfer ownership of unique_ptrs to SolutionData
   return SolutionData(
     retval,
     number_of_timesteps,
@@ -673,12 +673,12 @@ SolutionData IDAKLUSolverOpenMP<ExprSet>::solve(
     arg_sens2,
     length_of_final_sv_slice,
     save_hermite,
-    t_return.release(),
-    y_return.release(),
-    yp_return.release(),
-    yS_return.release(),
-    ypS_return.release(),
-    yterm_return.release());
+    std::move(t_return),
+    std::move(y_return),
+    std::move(yp_return),
+    std::move(yS_return),
+    std::move(ypS_return),
+    std::move(yterm_return));
 }
 
 template <class ExprSet>
