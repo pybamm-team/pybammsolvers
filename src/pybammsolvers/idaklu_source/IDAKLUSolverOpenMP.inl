@@ -45,7 +45,7 @@ IDAKLUSolverOpenMP<ExprSet>::IDAKLUSolverOpenMP(
 
   // Optionally silence SUNDIALS error messages (handled in PyBaMM)
   #if SUNDIALS_VERSION_MAJOR >= 7
-    if (solver_input.silence_sundials_warnings) {
+    if (solver_input.silence_sundials_errors) {
       SUNContext_ClearErrHandlers(sunctx);
     }
   #endif

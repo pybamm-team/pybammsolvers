@@ -138,7 +138,7 @@ SetupOptions::SetupOptions(py::dict &py_opts)
 
 SolverOptions::SolverOptions(py::dict &py_opts)
     : print_stats(py_opts["print_stats"].cast<bool>()),
-      silence_sundials_warnings(false),
+      silence_sundials_errors(false),
       // IDA main solver
       max_order_bdf(py_opts["max_order_bdf"].cast<int>()),
       max_num_steps(py_opts["max_num_steps"].cast<int>()),
@@ -177,7 +177,7 @@ SolverOptions::SolverOptions(py::dict &py_opts)
     }
 
     // Silence Sundials warnings w/ key checks for previous pybamm versions
-    if (py_opts.contains("silence_sundials_warnings")) {
-        silence_sundials_warnings = py_opts["silence_sundials_warnings"].cast<bool>();
+    if (py_opts.contains("silence_sundials_errors")) {
+        silence_sundials_errors = py_opts["silence_sundials_errors"].cast<bool>();
     }
 }
