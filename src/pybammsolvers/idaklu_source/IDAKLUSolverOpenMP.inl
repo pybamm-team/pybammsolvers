@@ -554,16 +554,11 @@ SolutionData IDAKLUSolverOpenMP<ExprSet>::solve(
     no_progression.AddDt(dt);
   }
 
+  // Allocate and populate final state slice if needed
   int const length_of_final_sv_slice = save_outputs_only ? number_of_states : 0;
-  // Use unique_ptr for automatic memory management (RAII)
   auto yterm_return = std::make_unique<sunrealtype[]>(length_of_final_sv_slice);
   if (save_outputs_only) {
-    // store final state slice if output variables are specified
-    size_t bytes_to_copy;
-    if (check_size_t_multiply_overflow(length_of_final_sv_slice, sizeof(sunrealtype), &bytes_to_copy)) {
-      throw std::runtime_error("Integer overflow when computing final state vector size");
-    }
-    std::memcpy(yterm_return.get(), y_val, bytes_to_copy);
+    std::memcpy(yterm_return.get(), y_val, length_of_final_sv_slice * sizeof(sunrealtype));
   }
 
   if (solver_opts.print_stats) {
@@ -574,8 +569,6 @@ SolutionData IDAKLUSolverOpenMP<ExprSet>::solve(
   number_of_timesteps = i_save;
 
   // Copy the data to return as numpy arrays
-  // Use unique_ptr for automatic memory management (RAII)
-
   // Time, t
   auto t_return = std::make_unique<sunrealtype[]>(number_of_timesteps);
   for (size_t i = 0; i < number_of_timesteps; i++) {
@@ -603,22 +596,26 @@ SolutionData IDAKLUSolverOpenMP<ExprSet>::solve(
   auto const arg_sens1 = (save_outputs_only ? length_of_return_vector : number_of_timesteps);
   auto const arg_sens2 = (save_outputs_only ? number_of_parameters : length_of_return_vector);
 
-  // Check for overflow before allocation
-  size_t yS_size;
-  if (check_size_t_multiply_overflow_3(arg_sens0, arg_sens1, arg_sens2, &yS_size)) {
-    throw std::runtime_error("Integer overflow when computing sensitivity state vector size (arg_sens0 * arg_sens1 * arg_sens2)");
+  // Check for overflow before allocation (only if sensitivity enabled and dimensions non-zero)
+  size_t yS_size = 0;
+  if (sensitivity) {
+    if (check_size_t_multiply_overflow_3(arg_sens0, arg_sens1, arg_sens2, &yS_size)) {
+      throw std::runtime_error("Integer overflow when computing sensitivity state vector size (arg_sens0 * arg_sens1 * arg_sens2)");
+    }
   }
   auto yS_return = std::make_unique<sunrealtype[]>(yS_size);
-  count = 0;
-  for (size_t idx0 = 0; idx0 < arg_sens0; idx0++) {
-    for (size_t idx1 = 0; idx1 < arg_sens1; idx1++) {
-      for (size_t idx2 = 0; idx2 < arg_sens2; idx2++) {
-        auto i = (save_outputs_only ? idx0 : idx1);
-        auto j = (save_outputs_only ? idx1 : idx2);
-        auto k = (save_outputs_only ? idx2 : idx0);
+  if (sensitivity) {
+    count = 0;
+    for (size_t idx0 = 0; idx0 < arg_sens0; idx0++) {
+      for (size_t idx1 = 0; idx1 < arg_sens1; idx1++) {
+        for (size_t idx2 = 0; idx2 < arg_sens2; idx2++) {
+          auto i = (save_outputs_only ? idx0 : idx1);
+          auto j = (save_outputs_only ? idx1 : idx2);
+          auto k = (save_outputs_only ? idx2 : idx0);
 
-        yS_return[count] = yS[i][k][j];
-        count++;
+          yS_return[count] = yS[i][k][j];
+          count++;
+        }
       }
     }
   }
@@ -630,8 +627,10 @@ SolutionData IDAKLUSolverOpenMP<ExprSet>::solve(
     if (check_size_t_multiply_overflow(number_of_timesteps, number_of_states, &yp_size)) {
       throw std::runtime_error("Integer overflow when computing Hermite state derivative vector size (number_of_timesteps * number_of_states)");
     }
-    if (check_size_t_multiply_overflow_3(arg_sens0, arg_sens1, arg_sens2, &ypS_size)) {
-      throw std::runtime_error("Integer overflow when computing Hermite sensitivity derivative vector size (arg_sens0 * arg_sens1 * arg_sens2)");
+    if (sensitivity) {
+      if (check_size_t_multiply_overflow_3(arg_sens0, arg_sens1, arg_sens2, &ypS_size)) {
+        throw std::runtime_error("Integer overflow when computing Hermite sensitivity derivative vector size (arg_sens0 * arg_sens1 * arg_sens2)");
+      }
     }
   }
   auto yp_return = std::make_unique<sunrealtype[]>(yp_size);
@@ -645,19 +644,19 @@ SolutionData IDAKLUSolverOpenMP<ExprSet>::solve(
       }
     }
 
-    // Sensitivity states, ypS
-    // Note: Ordering of vector is different if computing outputs vs returning
-    // the complete state vector
-    count = 0;
-    for (size_t idx0 = 0; idx0 < arg_sens0; idx0++) {
-      for (size_t idx1 = 0; idx1 < arg_sens1; idx1++) {
-        for (size_t idx2 = 0; idx2 < arg_sens2; idx2++) {
-          auto i = (save_outputs_only ? idx0 : idx1);
-          auto j = (save_outputs_only ? idx1 : idx2);
-          auto k = (save_outputs_only ? idx2 : idx0);
+    // Sensitivity derivatives, ypS - only populate if sensitivity is enabled
+    if (sensitivity) {
+      count = 0;
+      for (size_t idx0 = 0; idx0 < arg_sens0; idx0++) {
+        for (size_t idx1 = 0; idx1 < arg_sens1; idx1++) {
+          for (size_t idx2 = 0; idx2 < arg_sens2; idx2++) {
+            auto i = (save_outputs_only ? idx0 : idx1);
+            auto j = (save_outputs_only ? idx1 : idx2);
+            auto k = (save_outputs_only ? idx2 : idx0);
 
-          ypS_return[count] = ypS[i][k][j];
-          count++;
+            ypS_return[count] = ypS[i][k][j];
+            count++;
+          }
         }
       }
     }
