@@ -12,11 +12,11 @@ IDAKLUSolverOpenMP<ExprSet>::IDAKLUSolverOpenMP(
   np_array atol_np_input,
   double rel_tol,
   np_array rhs_alg_id_input,
-  int number_of_parameters_input,
-  int number_of_events_input,
-  int jac_times_cjmass_nnz_input,
-  int jac_bandwidth_lower_input,
-  int jac_bandwidth_upper_input,
+  sunindextype number_of_parameters_input,
+  sunindextype number_of_events_input,
+  sunindextype jac_times_cjmass_nnz_input,
+  sunindextype jac_bandwidth_lower_input,
+  sunindextype jac_bandwidth_upper_input,
   std::unique_ptr<ExprSet> functions_arg,
   const SetupOptions &setup_input,
   const SolverOptions &solver_input
@@ -61,11 +61,11 @@ IDAKLUSolverOpenMP<ExprSet>::IDAKLUSolverOpenMP(
   }
   // set initial values
   sunrealtype *atval = N_VGetArrayPointer(avtol);
-  for (int i = 0; i < number_of_states; i++) {
+  for (sunindextype i = 0; i < number_of_states; i++) {
     atval[i] = atol[i];
   }
 
-  for (int is = 0; is < number_of_parameters; is++) {
+  for (sunindextype is = 0; is < number_of_parameters; is++) {
     N_VConst(SUN_RCONST(0.0), yyS[is]);
     N_VConst(SUN_RCONST(0.0), yypS[is]);
   }
@@ -162,13 +162,13 @@ void IDAKLUSolverOpenMP<ExprSet>::InitializeHermiteStorage(int const N) {
 }
 
 template <class ExprSet>
-int IDAKLUSolverOpenMP<ExprSet>::ReturnVectorLength() {
+sunindextype IDAKLUSolverOpenMP<ExprSet>::ReturnVectorLength() {
   if (!save_outputs_only) {
     return number_of_states;
   }
 
   // set return vectors
-  int length_of_return_vector = 0;
+  sunindextype length_of_return_vector = 0;
   size_t max_res_size = 0;  // maximum result size (for common result buffer)
   size_t max_res_dvar_dy = 0, max_res_dvar_dp = 0;
   // return only the requested variables list after computation
@@ -332,7 +332,7 @@ void IDAKLUSolverOpenMP<ExprSet>::Initialize() {
 
   // Determine if the system is an ODE
   is_ODE = number_of_states > 0;
-  for (int ii = 0; ii < number_of_states; ii++) {
+  for (sunindextype ii = 0; ii < number_of_states; ii++) {
     id_val[ii] = id_np_val[ii];
     // check if id_val[ii] approximately equals 1 (>0.999) handles
     // cases where id_val[ii] is not exactly 1 due to numerical errors
@@ -419,7 +419,7 @@ SolutionData IDAKLUSolverOpenMP<ExprSet>::solve(
   auto n_coeffs = number_of_states + number_of_parameters * number_of_states;
 
   // set inputs
-  for (int i = 0; i < functions->inputs.size(); i++) {
+  for (size_t i = 0; i < functions->inputs.size(); i++) {
     functions->inputs[i] = inputs[i];
   }
 
@@ -428,16 +428,16 @@ SolutionData IDAKLUSolverOpenMP<ExprSet>::solve(
   sunrealtype *yp_val = N_VGetArrayPointer(yyp);
   vector<sunrealtype *> yS_val(number_of_parameters);
   vector<sunrealtype *> ypS_val(number_of_parameters);
-  for (int p = 0 ; p < number_of_parameters; p++) {
+  for (sunindextype p = 0 ; p < number_of_parameters; p++) {
     yS_val[p] = N_VGetArrayPointer(yyS[p]);
     ypS_val[p] = N_VGetArrayPointer(yypS[p]);
-    for (int i = 0; i < number_of_states; i++) {
+    for (sunindextype i = 0; i < number_of_states; i++) {
       yS_val[p][i] = y0[i + (p + 1) * number_of_states];
       ypS_val[p][i] = yp0[i + (p + 1) * number_of_states];
     }
   }
 
-  for (int i = 0; i < number_of_states; i++) {
+  for (sunindextype i = 0; i < number_of_states; i++) {
     y_val[i] = y0[i];
     yp_val[i] = yp0[i];
   }
@@ -950,7 +950,7 @@ void IDAKLUSolverOpenMP<ExprSet>::SetStepOutputSensitivities(
       }
 
       // For each parameter p_k, compute total d(output_row)/d(p_k)
-      for (int paramk = 0; paramk < number_of_parameters; paramk++) {
+      for (sunindextype paramk = 0; paramk < number_of_parameters; paramk++) {
         auto &yS_back_paramk = yS[i_save][paramk];  // Sensitivity vector for p_k at save step i_save
 
         // Start with direct contribution doutput/dp_k

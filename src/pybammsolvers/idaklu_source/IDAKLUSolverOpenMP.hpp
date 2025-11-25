@@ -50,19 +50,19 @@ public:
   void *ida_mem = nullptr;
   np_array atol_np;
   np_array rhs_alg_id;
-  int const number_of_states;  // cppcheck-suppress unusedStructMember
-  int const number_of_parameters;  // cppcheck-suppress unusedStructMember
-  int const number_of_events;  // cppcheck-suppress unusedStructMember
-  int number_of_timesteps;
+  sunindextype const number_of_states;  // cppcheck-suppress unusedStructMember
+  sunindextype const number_of_parameters;  // cppcheck-suppress unusedStructMember
+  sunindextype const number_of_events;  // cppcheck-suppress unusedStructMember
+  sunindextype number_of_timesteps;
   int precon_type;  // cppcheck-suppress unusedStructMember
   N_Vector yy, yyp, y_cache, avtol;  // y, y', y cache vector, and absolute tolerance
   N_Vector *yyS;  // cppcheck-suppress unusedStructMember
   N_Vector *yypS;  // cppcheck-suppress unusedStructMember
   N_Vector id;              // rhs_alg_id
   sunrealtype rtol;
-  int const jac_times_cjmass_nnz;  // cppcheck-suppress unusedStructMember
-  int const jac_bandwidth_lower;  // cppcheck-suppress unusedStructMember
-  int const jac_bandwidth_upper;  // cppcheck-suppress unusedStructMember
+  sunindextype const jac_times_cjmass_nnz;  // cppcheck-suppress unusedStructMember
+  sunindextype const jac_bandwidth_lower;  // cppcheck-suppress unusedStructMember
+  sunindextype const jac_bandwidth_upper;  // cppcheck-suppress unusedStructMember
   SUNMatrix J;
   SUNLinearSolver LS = nullptr;
   std::unique_ptr<ExprSet> functions;
@@ -73,7 +73,7 @@ public:
   bool const save_outputs_only; // cppcheck-suppress unusedStructMember
   bool save_hermite;  // cppcheck-suppress unusedStructMember
   bool is_ODE;  // cppcheck-suppress unusedStructMember
-  int length_of_return_vector;  // cppcheck-suppress unusedStructMember
+  sunindextype length_of_return_vector;  // cppcheck-suppress unusedStructMember
   vector<sunrealtype> t;  // cppcheck-suppress unusedStructMember
   vector<vector<sunrealtype>> y;  // cppcheck-suppress unusedStructMember
   vector<vector<sunrealtype>> yp;  // cppcheck-suppress unusedStructMember
@@ -94,11 +94,11 @@ public:
     np_array atol_np,
     double rel_tol,
     np_array rhs_alg_id,
-    int number_of_parameters,
-    int number_of_events,
-    int jac_times_cjmass_nnz,
-    int jac_bandwidth_lower,
-    int jac_bandwidth_upper,
+    sunindextype number_of_parameters,
+    sunindextype number_of_events,
+    sunindextype jac_times_cjmass_nnz,
+    sunindextype jac_bandwidth_lower,
+    sunindextype jac_bandwidth_upper,
     std::unique_ptr<ExprSet> functions,
     const SetupOptions &setup_opts,
     const SolverOptions &solver_opts
@@ -141,7 +141,7 @@ public:
   /**
    * @brief Get the length of the return vector
    */
-  int ReturnVectorLength();
+  sunindextype ReturnVectorLength();
 
   /**
    * @brief Initialize the storage for the solution

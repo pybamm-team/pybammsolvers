@@ -16,9 +16,9 @@ public:
   ExpressionSet(
     Expression* rhs_alg,
     Expression* jac_times_cjmass,
-    const int jac_times_cjmass_nnz,
-    const int jac_bandwidth_lower,
-    const int jac_bandwidth_upper,
+    const sunindextype jac_times_cjmass_nnz,
+    const sunindextype jac_bandwidth_lower,
+    const sunindextype jac_bandwidth_upper,
     const np_array_int &jac_times_cjmass_rowvals_arg,  // cppcheck-suppress unusedStructMember
     const np_array_int &jac_times_cjmass_colptrs_arg,  // cppcheck-suppress unusedStructMember
     const int inputs_length,
@@ -26,9 +26,9 @@ public:
     Expression* mass_action,
     Expression* sens,
     Expression* events,
-    const int n_s,
-    const int n_e,
-    const int n_p,
+    const sunindextype n_s,
+    const sunindextype n_e,
+    const sunindextype n_p,
     const SetupOptions& options)
       : number_of_states(n_s),
         number_of_events(n_e),
@@ -47,12 +47,12 @@ public:
         setup_opts(options)
       {};
 
-  int number_of_states;
-  int number_of_parameters;
-  int number_of_events;
-  int number_of_nnz;
-  int jac_bandwidth_lower;
-  int jac_bandwidth_upper;
+  sunindextype number_of_states;
+  sunindextype number_of_parameters;
+  sunindextype number_of_events;
+  sunindextype number_of_nnz;
+  sunindextype jac_bandwidth_lower;
+  sunindextype jac_bandwidth_upper;
 
   Expression *rhs_alg = nullptr;
   Expression *jac_times_cjmass = nullptr;

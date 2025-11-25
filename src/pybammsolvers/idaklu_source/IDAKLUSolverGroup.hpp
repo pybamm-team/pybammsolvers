@@ -14,7 +14,7 @@ public:
   /**
    * @brief Default constructor
    */
-  IDAKLUSolverGroup(std::vector<std::unique_ptr<IDAKLUSolver>> solvers, int number_of_states, int number_of_parameters):
+  IDAKLUSolverGroup(std::vector<std::unique_ptr<IDAKLUSolver>> solvers, sunindextype number_of_states, sunindextype number_of_parameters):
     m_solvers(std::move(solvers)),
     number_of_states(number_of_states),
     number_of_parameters(number_of_parameters)
@@ -41,8 +41,8 @@ public:
 
   private:
     std::vector<std::unique_ptr<IDAKLUSolver>> m_solvers;
-    int number_of_states;
-    int number_of_parameters;
+    sunindextype number_of_states;
+    sunindextype number_of_parameters;
 };
 
 #endif // PYBAMM_IDAKLU_SOLVER_GROUP_HPP

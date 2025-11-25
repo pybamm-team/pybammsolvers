@@ -21,12 +21,12 @@ class SolutionData
      */
     SolutionData(
       int flag,
-      int number_of_timesteps,
-      int length_of_return_vector,
-      int arg_sens0,
-      int arg_sens1,
-      int arg_sens2,
-      int length_of_final_sv_slice,
+      sunindextype number_of_timesteps,
+      sunindextype length_of_return_vector,
+      sunindextype arg_sens0,
+      sunindextype arg_sens1,
+      sunindextype arg_sens2,
+      sunindextype length_of_final_sv_slice,
       bool save_hermite,
       std::unique_ptr<sunrealtype[]> t_return,
       std::unique_ptr<sunrealtype[]> y_return,
@@ -82,12 +82,12 @@ class SolutionData
 
 private:
     int flag = 0;
-    int number_of_timesteps = 0;
-    int length_of_return_vector = 0;
-    int arg_sens0 = 0;
-    int arg_sens1 = 0;
-    int arg_sens2 = 0;
-    int length_of_final_sv_slice = 0;
+    sunindextype number_of_timesteps = 0;
+    sunindextype length_of_return_vector = 0;
+    sunindextype arg_sens0 = 0;
+    sunindextype arg_sens1 = 0;
+    sunindextype arg_sens2 = 0;
+    sunindextype length_of_final_sv_slice = 0;
     bool save_hermite = false;
     std::unique_ptr<sunrealtype[]> t_return;
     std::unique_ptr<sunrealtype[]> y_return;

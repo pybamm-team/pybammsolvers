@@ -102,31 +102,31 @@ public:
     // NOTE: You must allocate ALL std::vector elements before taking references
     for (auto& var : var_fcns)
       var_fcns_casadi.push_back(CasadiFunction(*var));
-    for (int k = 0; k < var_fcns_casadi.size(); k++)
+    for (size_t k = 0; k < var_fcns_casadi.size(); k++)
       ExpressionSet::var_fcns.push_back(&this->var_fcns_casadi[k]);
 
     for (auto& var : dvar_dy_fcns)
       dvar_dy_fcns_casadi.push_back(CasadiFunction(*var));
-    for (int k = 0; k < dvar_dy_fcns_casadi.size(); k++)
+    for (size_t k = 0; k < dvar_dy_fcns_casadi.size(); k++)
       this->dvar_dy_fcns.push_back(&this->dvar_dy_fcns_casadi[k]);
 
     for (auto& var : dvar_dp_fcns)
       dvar_dp_fcns_casadi.push_back(CasadiFunction(*var));
-    for (int k = 0; k < dvar_dp_fcns_casadi.size(); k++)
+    for (size_t k = 0; k < dvar_dp_fcns_casadi.size(); k++)
       this->dvar_dp_fcns.push_back(&this->dvar_dp_fcns_casadi[k]);
 
     // copy across numpy array values
-    const int n_row_vals = jac_times_cjmass_rowvals_arg.request().size;
+    const sunindextype n_row_vals = jac_times_cjmass_rowvals_arg.request().size;
     auto p_jac_times_cjmass_rowvals = jac_times_cjmass_rowvals_arg.unchecked<1>();
     jac_times_cjmass_rowvals.resize(n_row_vals);
-    for (int i = 0; i < n_row_vals; i++) {
+    for (sunindextype i = 0; i < n_row_vals; i++) {
       jac_times_cjmass_rowvals[i] = p_jac_times_cjmass_rowvals[i];
     }
 
-    const int n_col_ptrs = jac_times_cjmass_colptrs_arg.request().size;
+    const sunindextype n_col_ptrs = jac_times_cjmass_colptrs_arg.request().size;
     auto p_jac_times_cjmass_colptrs = jac_times_cjmass_colptrs_arg.unchecked<1>();
     jac_times_cjmass_colptrs.resize(n_col_ptrs);
-    for (int i = 0; i < n_col_ptrs; i++) {
+    for (sunindextype i = 0; i < n_col_ptrs; i++) {
       jac_times_cjmass_colptrs[i] = p_jac_times_cjmass_colptrs[i];
     }
 
