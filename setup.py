@@ -18,7 +18,9 @@ default_lib_dir = (
 
 INCLUDE_DIRS = [str(Path(default_lib_dir) / "include"), pybind11.get_include()]
 
-USE_PYTHON_CASADI = False if system() == "Windows" else True
+# Disable CasADi if explicitly turned off or on Windows
+_casadi_expr_off = os.environ.get("PYBAMM_IDAKLU_EXPR_CASADI", "ON").upper() == "OFF"
+USE_PYTHON_CASADI = False if (system() == "Windows" or _casadi_expr_off) else True
 
 # ---------- set environment variables for vcpkg on Windows ----------------------------
 
