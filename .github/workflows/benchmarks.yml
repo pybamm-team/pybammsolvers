@@ -1,9 +1,11 @@
 name: Benchmarks
 
+# Temporarily disabled for ARM Linux build testing (PR 85)
 on:
-  pull_request:
-    branches:
-      - "main"
+  workflow_dispatch:
+  # pull_request:
+  #   branches:
+  #     - "main"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
