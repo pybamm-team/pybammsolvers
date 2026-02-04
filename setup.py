@@ -41,18 +41,36 @@ def set_vcpkg_environment_variables():
 
 
 def get_casadi_python_include_dir():
+    # First check for environment variable (useful for CI builds where importing casadi may fail)
+    env_casadi_include = os.environ.get("CASADI_INCLUDE_DIR")
+    if env_casadi_include:
+        include_dir = Path(env_casadi_include)
+        if include_dir.exists():
+            return str(include_dir)
+        print(f"Warning: CASADI_INCLUDE_DIR={env_casadi_include} does not exist, trying import")
+    
+    # Fall back to importing casadi to find include directory
     import casadi
-
     casadi_path = Path(casadi.__file__).parent
     include_dir = casadi_path / "include"
     assert include_dir.exists(), f"CasADi include directory not found at {include_dir}"
     return str(include_dir)
 
 
-if USE_PYTHON_CASADI:
-    casadi_include = get_casadi_python_include_dir()
+# Defer casadi import - only get include dir when actually needed
+_casadi_include_cache = None
+
+def get_casadi_include_lazy():
+    global _casadi_include_cache
+    if _casadi_include_cache is None:
+        _casadi_include_cache = get_casadi_python_include_dir()
+    return _casadi_include_cache
+
+# Don't import casadi at module load time - defer to build time
+if USE_PYTHON_CASADI and os.environ.get("CASADI_INCLUDE_DIR"):
+    casadi_include = os.environ.get("CASADI_INCLUDE_DIR")
     INCLUDE_DIRS.append(casadi_include)
-    print(f"Adding CasADi include directory: {casadi_include}")
+    print(f"Adding CasADi include directory from env: {casadi_include}")
 
 # ---------- CMakeBuild class (custom build_ext for IDAKLU target) ---------------------
 
@@ -127,7 +145,7 @@ class CMakeBuild(build_ext):
             cmake_args.append(f"-DSUNDIALS_ROOT={os.path.abspath(self.sundials_root)}")
 
         if USE_PYTHON_CASADI:
-            casadi_include = get_casadi_python_include_dir()
+            casadi_include = get_casadi_include_lazy()
             cmake_args.append(f"-DCASADI_INCLUDE_DIR={casadi_include}")
             print(f"Adding CasADi include directory to CMake: {casadi_include}")
 
