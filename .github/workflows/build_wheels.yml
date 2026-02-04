@@ -42,10 +42,11 @@ jobs:
         run: pipx run cibuildwheel --output-dir wheelhouse
         env:
           CIBW_ARCHS_LINUX: aarch64
-          # Use manylinux_2_28 for newer GCC/libstdc++ (compatible with CasADi aarch64 wheels)
-          CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28
+          # Use manylinux_2_34 for newer libstdc++ (required for CasADi aarch64 wheels)
+          CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_34
           CIBW_BEFORE_ALL_LINUX: >
             dnf -y install openblas-devel lapack-devel &&
+            mkdir -p SuiteSparse/SuiteSparse_config/build SuiteSparse/AMD/build SuiteSparse/COLAMD/build SuiteSparse/BTF/build SuiteSparse/KLU/build &&
             python install_KLU_Sundials.py
           CIBW_REPAIR_WHEEL_COMMAND_LINUX: auditwheel repair -w {dest_dir} {wheel}
           CIBW_TEST_EXTRAS: "dev"
