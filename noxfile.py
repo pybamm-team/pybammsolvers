@@ -234,8 +234,9 @@ def run_pybamm_tests(session):
     # pybammsolvers is already installed locally, so it won't fetch from PyPI
     session.log("Installing PyBaMM with all dependencies...")
     session.cd(str(pybamm_dir))
-    # Install PyBaMM - uv should recognize the already-installed local pybammsolvers
-    session.install("-e", ".[all,dev,jax]", silent=False)
+    # Install PyBaMM extras and dev dependency group (PEP 735)
+    session.install("-e", ".[all,jax]", silent=False)
+    session.install("--group", "dev", silent=False)
 
     # Run PyBaMM tests
     session.cd(str(pybamm_dir))
