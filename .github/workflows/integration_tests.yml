@@ -45,5 +45,5 @@ jobs:
 
       - name: Build and test
         run: |
-          # Use PyBaMM-tests nox session
-          uvx nox -s pybamm-tests
+          # Use PyBaMM-tests nox session with increment-python-314 branch
+          uvx nox -s pybamm-tests -- --branch increment-python-314
