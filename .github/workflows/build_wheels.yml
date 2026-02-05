@@ -10,8 +10,8 @@ on:
 env:
   CIBW_BUILD_VERBOSITY: 2
   CIBW_BUILD_FRONTEND: "pip; args: --no-build-isolation"
-  # Skip PyPy and MUSL builds in any and all jobs
-  CIBW_SKIP: "pp* *musllinux*"
+  # Skip PyPy, MUSL, and free-threaded Python builds (CasADi lacks cp314t wheels)
+  CIBW_SKIP: "pp* *musllinux* cp314t*"
   FORCE_COLOR: 3
 
 jobs:
