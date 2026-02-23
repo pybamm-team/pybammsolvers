@@ -110,7 +110,10 @@ public:
         // Sentinel states: top-K by inv_atol (most sensitive to error).
         // Used for O(K) early-exit on reject paths before the full O(n) SIMD loop.
         // ~5% of states, capped at 32.
-        n_sentinels_ = std::min(n_states / 20 + 1, 32);
+        n_sentinels_ = std::min(
+            std::min(n_states, 32),
+            static_cast<int>(std::pow(2, std::floor(std::log2(0.05 * n_states))))
+        );
         sentinels_.resize(n_sentinels_);
         {
             std::vector<int> idx(n_states);
@@ -835,13 +838,10 @@ private:
 
         for (size_t p = 0; p < last; ++p) {
             // Lookahead: compute next point's basis
-            if (p + 1 < last) {
-                const double t_next = window_t_[p + 1];
-                const MergedBasis next = MergedBasis::AtInterior((t_next - anchor_t_) * inv_h, h, inv_h);
-            } else {
-                const double t_next = window_t_[last];
-                const MergedBasis next = MergedBasis::Candidate();
-            }
+            const double t_next = (p + 1 < last) ? window_t_[p + 1] : window_t_[last];
+            const MergedBasis next = (p + 1 < last)
+                ? MergedBasis::AtInterior((t_next - anchor_t_) * inv_h, h, inv_h)
+                : MergedBasis::Candidate();
 
             // Sub-interval lengths
             const double h_L = window_t_[p] - t_prev;
