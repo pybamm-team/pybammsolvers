@@ -151,8 +151,9 @@ PYBIND11_MODULE(idaklu, m)
   m.def("reduce_knots", &reduce_knots,
     "Streaming knot reduction on multi-segment solution data",
     py::arg("ts"), py::arg("ys"), py::arg("yps"),
-    py::arg("atols"), py::arg("rtol"),
-    py::arg("knot_multiplier"));
+    py::arg("atols"), py::arg("t_evals"),
+    py::arg("rtol"),
+    py::arg("hermite_reduction_factor"));
 
   py::class_<casadi::Function>(m, "Function");
 

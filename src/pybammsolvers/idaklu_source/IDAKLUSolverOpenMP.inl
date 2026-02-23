@@ -429,13 +429,17 @@ void IDAKLUSolverOpenMP<ExprSet>::InitializeSolveStorage(
     save_adaptive_steps_ &&
     !save_outputs_only
   );
-  use_knot_reduction_ = save_hermite && (solver_opts.knot_multiplier > 1.0) && !sensitivity;
+
+  use_knot_reduction_ = (
+    solver_opts.hermite_reduction_factor > 1.0 &&
+    save_hermite &&
+    !sensitivity
+  );
+
   length_of_return_vector = ReturnVectorLength();
   i_save_ = 0;
 
-  // Allocate output arrays
-  // Streaming (knot reduction): empty + reserved (reducer will push_back)
-  // Non-streaming: pre-filled for indexed access
+  // Allocate output arrays. Pre-allocate 64 elements for initial storage.
   int est = std::max(n_evals + n_interps, 64);
   auto init_vec = [&](auto& v, size_t n) {
     v.clear();
@@ -469,9 +473,9 @@ void IDAKLUSolverOpenMP<ExprSet>::InitializeSolveStorage(
 
   // Create knot reducer if active
   if (use_knot_reduction_) {
-    knot_reducer = std::make_unique<StreamingKnotReducer>(
+    knot_reducer = std::make_unique<HermiteKnotReducer>(
       number_of_states, rtol, N_VGetArrayPointer(avtol),
-      solver_opts.knot_multiplier,
+      solver_opts.hermite_reduction_factor,
       t, y, yp
     );
   }
@@ -555,11 +559,11 @@ void IDAKLUSolverOpenMP<ExprSet>::SavePoint(
   DEBUG("IDAKLUSolver::SavePoint");
 
   if (use_knot_reduction_) {
-    // TRUE STREAMING: Process point inline, reducer decides whether to keep
-    CheckErrors(IDAGetDky(ida_mem, t_val, 1, yyp), "IDAGetDky derivative for streaming");
+    // TRUE Hermite knot reducer: Process point inline, reducer decides whether to keep
+    CheckErrors(IDAGetDky(ida_mem, t_val, 1, yyp), "IDAGetDky derivative for Hermite knot reducer");
     knot_reducer->ProcessPoint(t_val, y_val_, yp_val_, is_breakpoint);
   } else {
-    // Non-streaming: check for duplicates and save
+    // Non-Hermite knot reducer: check for duplicates and save
     if (t_val != t[i_save_ - 1]) {
       if (extend_arrays) {
         ExtendAdaptiveArrays();
@@ -770,10 +774,7 @@ void IDAKLUSolverOpenMP<ExprSet>::ConsistentInitializationODE(
   residual_eval<ExprSet>(t_val, yy, y_cache, yyp, functions.get());
 }
 
-// ===========================================================================
 // Step storage methods (use member state: y_val_, yp_val_, yS_val_, ypS_val_, i_save_)
-// ===========================================================================
-
 template <class ExprSet>
 void IDAKLUSolverOpenMP<ExprSet>::SetStep(
   sunrealtype &tval

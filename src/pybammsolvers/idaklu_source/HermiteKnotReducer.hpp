@@ -1,5 +1,5 @@
-#ifndef PYBAMM_KNOT_REDUCER_HPP
-#define PYBAMM_KNOT_REDUCER_HPP
+#ifndef HERMITE_KNOT_REDUCER_HPP
+#define HERMITE_KNOT_REDUCER_HPP
 
 #include "common.hpp"
 #include <vector>
@@ -14,7 +14,7 @@
  * Processes points one at a time as IDA generates them, deciding inline
  * whether to keep or discard each point. Only committed points are stored.
  *
- * ERROR CHECKING uses a three-level hierarchy for maximum efficiency:
+ * Error checking uses a three-level hierarchy for maximum efficiency:
  *
  *   Level 1 (hot path): Conservative Bernstein bound with inv_atol weighting.
  *     Division-free, fully SIMD-vectorizable. Catches the common case where
@@ -29,47 +29,40 @@
  *     Splits each Bernstein curve at the midpoint via de Casteljau's algorithm,
  *     producing 8 refined control points whose convex hull is ~4x tighter.
  *
- * LS DERIVATIVE REFINEMENT (optional, integral L² objective):
+ * LeastSquares derivative refinement (integral L2 objective):
  *
  *   After the greedy pass selects knots, a least-squares update adjusts the
  *   derivative (y') values at each knot to minimize the continuous integral
  *   of the squared error between the original and reduced Hermite interpolants:
  *
- *     min_δ  Σ_spans ∫ (H_orig(t) - H_new(t; y'+δ))² dt
+ *     min_δ  Σ_spans ∫ (H_orig(t) - H_new(t; y'+δ))**2 dt
  *
- *   The sensitivity functions φ_A(t) = h₁₀(u)·hₘ and φ_B(t) = h₁₁(u)·hₘ
+ *   The sensitivity functions φ_A(t) = h₁₀(u)·h_m and φ_B(t) = h₁₁(u)·h_m
  *   are global cubics on each merged span, so their inner products come from
- *   the Hermite mass matrix and are CLOSED-FORM constants:
+ *   the Hermite mass matrix (Gram matrix) and are closed-form constants:
  *
- *     diag += hₘ³/105,   offdiag += -hₘ³/140
+ *     diag += h_m**3/105,   offdiag += -h_m**3/140
  *
  *   The matrix is strictly diagonally dominant (1/105 > 1/140), hence always
- *   SPD — no Tikhonov regularization needed, no zero-diagonal branching.
+ *   SPD
  *
- *   FACTORED ACCUMULATION: By expanding knot errors d_k = y_k - H(t_k) and
- *   absorbing the constant endpoint data into scalar accumulators, the per-
- *   state inner loop reduces from 7 FMA (unfactored pointwise) to 4 FMA:
- *
- *     sum_A[s] += c_d_A · y_p[s] + c_dp_A · y'_p[s]   (2 FMA)
- *     sum_B[s] += c_d_B · y_p[s] + c_dp_B · y'_p[s]   (2 FMA)
- *
- *   The Thomas solve at Finalize() is O(K) scalar factorization + O(K*S)
+ *   The LU solve at Finalize() is O(K) scalar factorization + O(K*S)
  *   fused back-sub + yp update — negligible versus O(M*S) accumulation.
  *
- *   GUARANTEE: The refinement can only reduce or maintain the L² error.
- *   δ=0 is always feasible (produces the original y' values), so the LS
+ *   The refinement can only reduce or maintain the L2 error.
+ *   δ=0 is always feasible (produces the original y' values), so the LeastSquares
  *   minimizer can never increase the error.
  *
- * NUMERICAL STABILITY: The merged Hermite spline is evaluated using normalized
- * coordinates u = (t - t_anchor) / h_merged with Hermite basis functions that
+ * Numerical stability: The merged Hermite spline is evaluated using normalized
+ * coordinates u = (t - t_anchor) / h_m with Hermite basis functions that
  * are O(1) for u in [0,1]. This avoids the catastrophic cancellation inherent
- * in Horner evaluation of monomial coefficients that scale as O(1/h^k).
+ * in Horner evaluation of monomial coefficients that scale as O(1/h**k).
  *
  * Memory:
  *   - O(1) for anchor point
  *   - O(span) for intermediate points in current merge window
  *   - O(K) for committed output where K = kept points
- *   - O(K + K*S) for LS refinement arrays (when enabled): K scalars for
+ *   - O(K + K*S) for LeastSquares refinement arrays (when enabled): K scalars for
  *     state-independent matrix + K*S for per-state RHS
  *
  * Algorithm:
@@ -79,9 +72,9 @@
  *   - If yes: add new to window
  *   - If no: commit last point in window, it becomes anchor, continue
  */
-class StreamingKnotReducer {
+class HermiteKnotReducer {
 public:
-    StreamingKnotReducer(
+    HermiteKnotReducer(
         int n_states,
         double rtol,
         const double* atol_ptr,
@@ -116,22 +109,30 @@ public:
 
         // Sentinel states: top-K by inv_atol (most sensitive to error).
         // Used for O(K) early-exit on reject paths before the full O(n) SIMD loop.
-        n_sentinels_ = std::min(n_states, 32);
+        // ~5% of states, capped at 32.
+        n_sentinels_ = std::min(n_states / 20 + 1, 32);
         sentinels_.resize(n_sentinels_);
         {
             std::vector<int> idx(n_states);
-            for (int j = 0; j < n_states; ++j) idx[j] = j;
+            for (int j = 0; j < n_states; ++j) {
+                idx[j] = j;
+            }
+            
             std::partial_sort(idx.begin(), idx.begin() + n_sentinels_, idx.end(),
                 [this](int a, int b) { return inv_atol_[a] > inv_atol_[b]; });
-            for (int s = 0; s < n_sentinels_; ++s) sentinels_[s] = idx[s];
+            
+            for (int s = 0; s < n_sentinels_; ++s) {
+                sentinels_[s] = idx[s];
+            }
         }
 
         // Reserve space for window (will grow dynamically)
-        window_t_.reserve(100);
-        window_y_.reserve(100 * n_states);
-        window_yp_.reserve(100 * n_states);
+        const int n_est = 32;
+        window_t_.reserve(n_est);
+        window_y_.reserve(n_est * n_states);
+        window_yp_.reserve(n_est * n_states);
 
-        // LS work buffers (factored accumulation)
+        // LeastSquares work buffers (factored accumulation)
         ls_sum_A_.resize(n_states, 0.0);
         ls_sum_B_.resize(n_states, 0.0);
     }
@@ -139,13 +140,13 @@ public:
     bool IsActive() const { return active_; }
 
     /**
-     * @brief Process a new point from IDA.
+     * @brief Process a new point from the solver.
      *
      * Matches post-processing greedy algorithm:
      * - Track "candidate" = last point for which merge succeeded
      * - On failure, commit candidate, anchor = candidate, start new window
      *
-     * When LS refinement is enabled, the closing span's interior points
+     * When LeastSquares refinement is enabled, the closing span's interior points
      * are accumulated into the tri-diagonal normal equations just before
      * the candidate is committed (cache-hot from the merge check).
      */
@@ -159,17 +160,19 @@ public:
 
         // Breakpoint: must commit candidate (if any) and this point
         if (is_breakpoint) {
+            sunrealtype h_span;
             if (!window_t_.empty()) {
+                // trailing span: candidate → breakpoint
                 FlushCandidate();
-                // Matrix entries for the trailing span: candidate → breakpoint
-                LSAccumulateMatrix(t - window_t_.back());
+                h_span = t - window_t_.back();                
             } else {
-                // Matrix entries for the span: anchor → breakpoint (no interior)
-                LSAccumulateMatrix(t - anchor_t_);
+                // span: anchor → breakpoint (no interior)
+                h_span = t - anchor_t_;
             }
+            LeastSquaresAccumulateMatrix(h_span);
             CommitPoint(t, y, yp);
             SetAnchor(t, y, yp);
-            // Back-to-back anchor: finalize LS for the completed interval
+            // Back-to-back anchor: finalize LeastSquares for the completed interval
             FinalizeInterval();
             return;
         }
@@ -188,7 +191,7 @@ public:
         SetAnchor(window_t_[last], &window_y_[last * n_states_],
                     &window_yp_[last * n_states_]);
         // Back-to-back anchor (window had only 1 point = candidate):
-        // finalize LS since there are no interior points to couple across
+        // finalize LeastSquares since there are no interior points to couple across
         if (back_to_back) {
             FinalizeInterval();
         }
@@ -197,7 +200,7 @@ public:
 
     /**
      * @brief Flush remaining candidate at end of solve, then finalize
-     *        the last interval's LS refinement.
+     *        the last interval's LeastSquares refinement.
      */
     void Finalize() {
         if (!window_t_.empty()) {
@@ -207,11 +210,11 @@ public:
     }
 
     /**
-     * @brief Solve LS refinement for the current continuous interval,
-     *        then reset the LS system for the next interval.
+     * @brief Solve LeastSquares refinement for the current continuous interval,
+     *        then reset the LeastSquares system for the next interval.
      *
      * Called at every interval boundary: integrator reinitialize (t_eval),
-     * events, and end-of-solve. Ensures the LS tridiagonal system is
+     * events, and end-of-solve. Ensures the LeastSquares tridiagonal system is
      * scoped to a single continuous interval — never spanning across
      * discontinuities where the integrator reinitializes.
      *
@@ -219,10 +222,10 @@ public:
      */
     void FinalizeInterval() {
         if (ls_knot_count_ >= 2) {
-            LSSolveAndUpdate();
+            LeastSquaresSolveAndUpdate();
         }
 
-        // Reset LS state: last committed point becomes knot 0 of next interval
+        // Reset LeastSquares state: last committed point becomes knot 0 of next interval
         ls_interval_start_ = out_count_ - 1;
         ls_knot_count_ = 1;
         ls_diag_.assign(1, 0.0);
@@ -233,46 +236,44 @@ public:
     int GetOutputCount() const { return out_count_; }
 
 private:
-    // ════════════════════════════════════════════════════════════════════
     //  Data Members
-    // ════════════════════════════════════════════════════════════════════
 
-    // ── Core ──
+    // Core
     int n_states_;
     double rtol_;
     double threshold_;
     bool active_;
     std::vector<double> inv_atol_;
 
-    // ── Output (pointers to solver's arrays) ──
+    // Output (pointers to solver's arrays)
     std::vector<sunrealtype>* out_t_;
     std::vector<sunrealtype>* out_y_;
     std::vector<sunrealtype>* out_yp_;
     int out_count_;
 
-    // ── Anchor (last committed point) ──
+    // Anchor (last committed point)
     sunrealtype anchor_t_;
     std::vector<sunrealtype> anchor_y_, anchor_yp_;
     bool has_anchor_;
 
-    // ── Window: points since anchor that may be removed ──
+    // Window: points since anchor that may be removed
     std::vector<sunrealtype> window_t_;
     std::vector<sunrealtype> window_y_;   // Flat: [n_states * window_size]
     std::vector<sunrealtype> window_yp_;  // Flat: [n_states * window_size]
 
-    // ── Greedy: double-buffered knot error caches ──
+    // Greedy: double-buffered knot error caches
     std::vector<sunrealtype> dk_buf0_, dpk_buf0_, dk_buf1_, dpk_buf1_;
 
-    // ── Greedy: sentinel states (top-K by inv_atol) ──
+    // Greedy: sentinel states (top-K by inv_atol)
     std::vector<int> sentinels_;
     int n_sentinels_;
 
-    // ── LS derivative refinement ──
+    // LeastSquares derivative refinement
     //
-    // Tridiagonal normal-equation system for the integral L² objective.
+    // Tridiagonal normal-equation system for the integral L2 objective.
     // Matrix entries are state-independent O(1) per span (Gram constants).
     // RHS is accumulated per state via factored 4-FMA inner loop.
-    int ls_knot_count_;           // Knots in current interval's LS system
+    int ls_knot_count_;           // Knots in current interval's LeastSquares system
     int ls_interval_start_;       // Output index of current interval's first knot
     std::vector<double> ls_diag_;      // Main diagonal:  K scalars
     std::vector<double> ls_offdiag_;   // Off-diagonal:   (K-1) scalars
@@ -280,7 +281,7 @@ private:
     std::vector<double> ls_sum_A_;     // Per-state work buffer (S doubles)
     std::vector<double> ls_sum_B_;     // Per-state work buffer (S doubles)
 
-    // ── Hermite mass matrix G_{ij} = ∫₀¹ hᵢ(u) hⱼ(u) du ──
+    // Hermite mass matrix G_{ij} = ∫₀¹ hᵢ(u) hⱼ(u) du
     // Basis order: {h₀₀, h₁₀, h₀₁, h₁₁}
     // 10 unique entries of the 4×4 symmetric matrix.
     static constexpr double kG00 = 13.0/35.0;
@@ -294,26 +295,24 @@ private:
     static constexpr double kG23 = -11.0/210.0;
     static constexpr double kG33 = 1.0/105.0;
 
-    // ════════════════════════════════════════════════════════════════════
     //  Hermite Basis: all 8 values at a normalized coordinate u
-    // ════════════════════════════════════════════════════════════════════
 
     /**
      * @brief All 8 Hermite basis function values at a normalized coordinate.
      *
      * For a merged span of length h with u = (t - t_anchor) / h:
      *
-     *   Sensitivity basis (LS φ functions):
-     *     phiA  = h₁₀(u)·h = (u³ - 2u² + u)·h      sensitivity to anchor y'
-     *     dphiA = h₁₀'(u)  = 3u² - 4u + 1            its derivative
-     *     phiB  = h₁₁(u)·h = (u³ - u²)·h             sensitivity to candidate y'
-     *     dphiB = h₁₁'(u)  = 3u² - 2u                 its derivative
+     *   Sensitivity basis (LeastSquares φ functions):
+     *     phiA  = h₁₀(u)·h = (u**3 - 2u**2 + u)·h      sensitivity to anchor y'
+     *     dphiA = h₁₀'(u)  = 3u**2 - 4u + 1            its derivative
+     *     phiB  = h₁₁(u)·h = (u**3 - u**2)·h             sensitivity to candidate y'
+     *     dphiB = h₁₁'(u)  = 3u**2 - 2u                 its derivative
      *
      *   Value interpolation basis (for knot error d_k = y_k - H(t_k)):
-     *     cv0 = h₀₀(u) = 2u³ - 3u² + 1               anchor value weight
-     *     cv2 = h₀₁(u) = -2u³ + 3u²                   candidate value weight
-     *     cd0 = h₀₀'(u)/h = 6(u²-u)/h                 anchor value deriv weight
-     *     cd2 = h₀₁'(u)/h = -6(u²-u)/h = -cd0         candidate value deriv weight
+     *     cv0 = h₀₀(u) = 2u**3 - 3u**2 + 1               anchor value weight
+     *     cv2 = h₀₁(u) = -2u**3 + 3u**2                   candidate value weight
+     *     cd0 = h₀₀'(u)/h = 6(u**2-u)/h                 anchor value deriv weight
+     *     cd2 = h₀₁'(u)/h = -6(u**2-u)/h = -cd0         candidate value deriv weight
      *
      * Note: cv1 = phiA, cd1 = dphiA, cv3 = phiB, cd3 = dphiB.
      */
@@ -321,7 +320,7 @@ private:
         double phiA, dphiA, phiB, dphiB;
         double cv0, cv2, cd0, cd2;
 
-        static MergedBasis AtInterior(double u, double h, double inv_h) {
+        static MergedBasis AtInterior(const double u, const double h, const double inv_h) {
             const double u2 = u * u, u3 = u2 * u;
             return {
                 (u3 - 2.0*u2 + u) * h,       // phiA
@@ -339,12 +338,10 @@ private:
         static constexpr MergedBasis Candidate() { return {0,0,0,1, 0,1,0,0}; }
     };
 
-    // ════════════════════════════════════════════════════════════════════
     //  Point Management
-    // ════════════════════════════════════════════════════════════════════
 
     void CommitPoint(sunrealtype t, const sunrealtype* y, const sunrealtype* yp) {
-        LSEnsureArrays();
+        LeastSquaresEnsureArrays();
         ++ls_knot_count_;
         
         out_t_->push_back(t);
@@ -373,22 +370,20 @@ private:
 
     /**
      * @brief Commit the current candidate (window.back()) after accumulating
-     *        its LS span contributions. Does NOT clear the window.
+     *        its LeastSquares span contributions. Does NOT clear the window.
      *
-     * Extracts the repeated pattern: LSAccumulateSpan + CommitPoint for the
+     * Extracts the repeated pattern: LeastSquaresAccumulateSpan + CommitPoint for the
      * last point in the window. After this call, window data is still valid
      * (only SetAnchor clears it).
      */
     void FlushCandidate() {
         const size_t last = window_t_.size() - 1;
-        LSAccumulateSpan(last);
+        LeastSquaresAccumulateSpan(last);
         CommitPoint(window_t_[last], &window_y_[last * n_states_],
                     &window_yp_[last * n_states_]);
     }
 
-    // ════════════════════════════════════════════════════════════════════
     //  Greedy Merge Check (Bernstein-certified, three-level hierarchy)
-    // ════════════════════════════════════════════════════════════════════
 
     /**
      * @brief Compute knot errors d_k = y_k - H_merged(t_k) and d'_k via
@@ -431,7 +426,7 @@ private:
     /**
      * @brief Sentinel pre-check: O(n_sentinels) lower bound on Level 1 sum.
      *
-     * Checks the top-32 states (by inv_atol) for a certified lower bound.
+     * Checks the top-n_sentinels states (by inv_atol) for a certified lower bound.
      * If sentinels alone exceed threshold, the full sum certainly does too.
      * Valid because partial sum <= full sum.
      *
@@ -458,7 +453,7 @@ private:
     }
 
     /**
-     * @brief Level 1: Conservative Bernstein bound (division-free, SIMD).
+     * @brief Level 1: Conservative Bernstein bound
      *
      * Uses inv_atol >= inv_w as upper bound on the WRMS weight.
      * First/last sub-intervals check only 2 control points (anchor/new-point
@@ -577,24 +572,27 @@ private:
 
         #pragma omp simd reduction(+:sum_sq)
         for (int j = 0; j < n; ++j) {
-            const sunrealtype B0 = dk_left[j];
-            const sunrealtype B1 = dk_left[j] + dpk_left[j] * h_third;
-            const sunrealtype B2 = dk_right[j] - dpk_right[j] * h_third;
-            const sunrealtype B3 = dk_right[j];
+            // Apply the absolute value to the Bernstein control points
+            const sunrealtype B0_abs = std::fabs(dk_left[j]);
+            const sunrealtype B1_abs = std::fabs(dk_left[j] + dpk_left[j] * h_third);
+            const sunrealtype B2_abs = std::fabs(dk_right[j] - dpk_right[j] * h_third);
+            const sunrealtype B3_abs = std::fabs(dk_right[j]);
 
-            const sunrealtype L1 = 0.5 * (B0 + B1);
-            const sunrealtype L2 = 0.25 * (B0 + 2.0 * B1 + B2);
-            const sunrealtype L3 = 0.125 * (B0 + 3.0 * (B1 + B2) + B3);
+            // The Li and Ri are already their absolute values since we
+            // only add and multiply by positive constants
+            const sunrealtype L1_abs = 0.5 * (B0_abs + B1_abs);
+            const sunrealtype L2_abs = 0.25 * (B0_abs + 2.0 * B1_abs + B2_abs);
+            const sunrealtype L3_abs = 0.125 * (B0_abs + 3.0 * (B1_abs + B2_abs) + B3_abs);
 
-            const sunrealtype R1 = 0.25 * (B1 + 2.0 * B2 + B3);
-            const sunrealtype R2 = 0.5 * (B2 + B3);
+            const sunrealtype R1_abs = 0.25 * (B1_abs + 2.0 * B2_abs + B3_abs);
+            const sunrealtype R2_abs = 0.5 * (B2_abs + B3_abs);
 
             const sunrealtype max_left = std::fmax(
-                std::fmax(std::fabs(B0), std::fabs(L1)),
-                std::fmax(std::fabs(L2), std::fabs(L3)));
+                std::fmax(B0_abs, L1_abs),
+                std::fmax(L2_abs, L3_abs));
             const sunrealtype max_right = std::fmax(
-                std::fmax(std::fabs(L3), std::fabs(R1)),
-                std::fmax(std::fabs(R2), std::fabs(B3)));
+                std::fmax(L3_abs, R1_abs),
+                std::fmax(R2_abs, B3_abs));
             const sunrealtype err = std::fmax(max_left, max_right);
 
             const sunrealtype ymin = std::fmin(std::fabs(y_left[j]),
@@ -625,7 +623,7 @@ private:
      * stable Hermite basis functions in normalized coordinates, then shared
      * between adjacent sub-intervals via double buffering.
      */
-    bool CanMergeWindow(sunrealtype t_new, const sunrealtype* y_new, const sunrealtype* yp_new) {
+    bool CanMergeWindow(const sunrealtype t_new, const sunrealtype* y_new, const sunrealtype* yp_new) {
         const int n = n_states_;
 
         const sunrealtype h_merged = t_new - anchor_t_;
@@ -664,7 +662,7 @@ private:
 
             const sunrealtype h_third = h_sub / 3.0;
 
-            // ── Sentinel pre-check ──
+            // Sentinel pre-check
             bool skip_level1 = false;
             if (!is_first && n_sentinels_ > 0) {
                 if (CheckSentinels(dk_left, dpk_left, h_third)) {
@@ -684,7 +682,7 @@ private:
                                       dk_right, dpk_right);
                 }
 
-                // ── Level 1: Conservative Bernstein (division-free) ──
+                // Level 1: Conservative Bernstein (division-free)
                 const double l1_sum = CheckLevel1(dk_left, dpk_left,
                                                   dk_right, dpk_right,
                                                   h_third, is_first, is_last);
@@ -695,7 +693,7 @@ private:
                 }
             }
 
-            // ── Level 2: Bernstein with exact WRMS weight (rare path) ──
+            // Level 2: Bernstein with exact WRMS weight (rare path)
             // Deferred memset: only zero the endpoint buffers on this rare path.
             if (is_first) {
                 std::memset(dk_left, 0, n * sizeof(sunrealtype));
@@ -711,7 +709,7 @@ private:
                                               h_third, y_left, y_right);
 
             if (l2_sum > threshold_) {
-                // ── Level 3: De Casteljau midpoint subdivision ──
+                // Level 3: De Casteljau midpoint subdivision.
                 if (l2_sum > 9.0 * threshold_) {
                     return false;
                 }
@@ -730,18 +728,15 @@ private:
         return true;
     }
 
-    // ════════════════════════════════════════════════════════════════════
-    //  LS Derivative Refinement: Streaming Accumulation + Thomas Solve
-    // ════════════════════════════════════════════════════════════════════
+    //  LeastSquares Derivative Refinement: Streaming Accumulation + LU Solve
 
     /**
-     * @brief Ensure LS arrays are sized for the current knot count.
+     * @brief Ensure LeastSquares arrays are sized for the current knot count.
      *
      * Resizes diag, offdiag, and rhs arrays to accommodate ls_knot_count_ + 1
-     * entries. New entries are zero-initialized. Safe to call multiple times
-     * (resize is a no-op when already at the correct size).
+     * entries. New entries are zero-initialized
      */
-    void LSEnsureArrays() {
+    void LeastSquaresEnsureArrays() {
         const size_t kp1 = static_cast<size_t>(ls_knot_count_ + 1);
         ls_diag_.resize(kp1, 0.0);
         ls_rhs_.resize(kp1 * n_states_, 0.0);
@@ -751,28 +746,28 @@ private:
     }
 
     /**
-     * @brief Accumulate LS matrix entries (O(1) per span, closed-form).
+     * @brief Accumulate LeastSquares matrix entries (O(1) per span, closed-form).
      *
      * Adds the Hermite mass matrix contributions for a span of length h_span:
-     *   diag[k-1] += h³/105,  diag[k] += h³/105,  offdiag[k-1] += -h³/140
+     *   diag[k-1] += h**3/105,  diag[k] += h**3/105,  offdiag[k-1] += -h**3/140
      *
-     * Used for both full spans (via LSAccumulateSpan) and empty spans with
+     * Used for both full spans (via LeastSquaresAccumulateSpan) and empty spans with
      * no interior points (e.g., candidate→breakpoint or anchor→breakpoint).
      *
      * @param h_span  Length of the span
      */
-    void LSAccumulateMatrix(sunrealtype h_span) {
+    void LeastSquaresAccumulateMatrix(const sunrealtype h_span) {
         if (ls_knot_count_ == 0 || h_span <= 0.0) return;
-        LSEnsureArrays();
+        LeastSquaresEnsureArrays();
         const int k = ls_knot_count_;
         const double h3 = h_span * h_span * h_span;
-        ls_diag_[k - 1]    += h3 * kG11;   // h³/105
-        ls_diag_[k]        += h3 * kG33;   // h³/105
-        ls_offdiag_[k - 1] += h3 * kG13;   // -h³/140
+        ls_diag_[k - 1]    += h3 * kG11;   // h**3/105
+        ls_diag_[k]        += h3 * kG33;   // h**3/105
+        ls_offdiag_[k - 1] += h3 * kG13;   // -h**3/140
     }
 
     /**
-     * @brief Accumulate LS matrix + RHS for a closing span.
+     * @brief Accumulate LeastSquares matrix + RHS for a closing span.
      *
      * Thin dispatcher: accumulates the closed-form matrix entries, then
      * (if there are interior points) the factored RHS contributions.
@@ -781,17 +776,17 @@ private:
      *
      * @param last  Index of the candidate in the window (window.back())
      */
-    void LSAccumulateSpan(size_t last) {
+    void LeastSquaresAccumulateSpan(const size_t last) {
         if (ls_knot_count_ == 0) return;
         const sunrealtype h = window_t_[last] - anchor_t_;
-        LSAccumulateMatrix(h);
+        LeastSquaresAccumulateMatrix(h);
         if (last > 0 && h > 0.0) {
-            LSAccumulateRHS(last, h);
+            LeastSquaresAccumulateRHS(last, h);
         }
     }
 
     /**
-     * @brief Accumulate LS RHS via factored sliding-window accumulation.
+     * @brief Accumulate LeastSquares RHS via factored sliding-window accumulation.
      *
      * Processes interior points p = 0..last-1 in a single pass with a
      * prev → curr → next sliding window of MergedBasis values.
@@ -807,7 +802,7 @@ private:
      * @param last  Index of the candidate (window.back())
      * @param h     Merged span length (t_candidate - t_anchor, must be > 0)
      */
-    void LSAccumulateRHS(size_t last, sunrealtype h) {
+    void LeastSquaresAccumulateRHS(const size_t last, const sunrealtype h) {
         const int S = n_states_;
         const int k = ls_knot_count_;
         const int km1 = k - 1;
@@ -831,7 +826,7 @@ private:
         double s_ya_A = 0, s_ypa_A = 0, s_yr_A = 0, s_ypr_A = 0;
         double s_ya_B = 0, s_ypa_B = 0, s_yr_B = 0, s_ypr_B = 0;
 
-        // ── Sliding window: prev → curr → next ──
+        // Sliding window: prev → curr → next
         MergedBasis prev = MergedBasis::Anchor();
         double t_prev = anchor_t_;
 
@@ -840,16 +835,19 @@ private:
 
         for (size_t p = 0; p < last; ++p) {
             // Lookahead: compute next point's basis
-            const double t_next = (p + 1 < last) ? window_t_[p + 1] : window_t_[last];
-            const MergedBasis next = (p + 1 < last)
-                ? MergedBasis::AtInterior((t_next - anchor_t_) * inv_h, h, inv_h)
-                : MergedBasis::Candidate();
+            if (p + 1 < last) {
+                const double t_next = window_t_[p + 1];
+                const MergedBasis next = MergedBasis::AtInterior((t_next - anchor_t_) * inv_h, h, inv_h);
+            } else {
+                const double t_next = window_t_[last];
+                const MergedBasis next = MergedBasis::Candidate();
+            }
 
             // Sub-interval lengths
             const double h_L = window_t_[p] - t_prev;
             const double h_R = t_next - window_t_[p];
 
-            // ── Left sub-interval [prev, p]: Gram-weighted rows 2,3 ──
+            // Left sub-interval [prev, p]: Gram-weighted rows 2,3
             const double aL0 = prev.phiA,  aL1 = h_L * prev.dphiA;
             const double aL2 = curr.phiA,  aL3 = h_L * curr.dphiA;
             const double qAL2 = kG02*aL0 + kG12*aL1 + kG22*aL2 + kG23*aL3;
@@ -860,7 +858,7 @@ private:
             const double qBL2 = kG02*bL0 + kG12*bL1 + kG22*bL2 + kG23*bL3;
             const double qBL3 = kG03*bL0 + kG13*bL1 + kG23*bL2 + kG33*bL3;
 
-            // ── Right sub-interval [p, next]: Gram-weighted rows 0,1 ──
+            // Right sub-interval [p, next]: Gram-weighted rows 0,1
             const double aR0 = curr.phiA,  aR1 = h_R * curr.dphiA;
             const double aR2 = next.phiA,  aR3 = h_R * next.dphiA;
             const double qAR0 = kG00*aR0 + kG01*aR1 + kG02*aR2 + kG03*aR3;
@@ -871,13 +869,13 @@ private:
             const double qBR0 = kG00*bR0 + kG01*bR1 + kG02*bR2 + kG03*bR3;
             const double qBR1 = kG01*bR0 + kG11*bR1 + kG12*bR2 + kG13*bR3;
 
-            // ── Combined per-node coefficients ──
+            // Combined per-node coefficients
             const double c_d_A  = h_L * qAL2 + h_R * qAR0;
             const double c_dp_A = h_L * h_L * qAL3 + h_R * h_R * qAR1;
             const double c_d_B  = h_L * qBL2 + h_R * qBR0;
             const double c_dp_B = h_L * h_L * qBL3 + h_R * h_R * qBR1;
 
-            // ── Scalar accumulators: absorb constant endpoint data ──
+            // Scalar accumulators: absorb constant endpoint data
             s_ya_A  += c_d_A * curr.cv0 + c_dp_A * curr.cd0;
             s_ypa_A += c_d_A * curr.phiA + c_dp_A * curr.dphiA;  // cv1=phiA, cd1=dphiA
             s_yr_A  += c_d_A * curr.cv2 + c_dp_A * curr.cd2;
@@ -888,7 +886,7 @@ private:
             s_yr_B  += c_d_B * curr.cv2 + c_dp_B * curr.cd2;
             s_ypr_B += c_d_B * curr.phiB + c_dp_B * curr.dphiB;
 
-            // ── Per-state accumulation (4 FMA per state) ──
+            // Per-state accumulation (4 FMA per state)
             const sunrealtype* __restrict__ y_p  = &window_y_[p * S];
             const sunrealtype* __restrict__ yp_p = &window_yp_[p * S];
 
@@ -898,13 +896,13 @@ private:
                 sum_B[s] += c_d_B * y_p[s] + c_dp_B * yp_p[s];
             }
 
-            // ── Advance sliding window ──
+            // Advance sliding window
             t_prev = window_t_[p];
             prev = curr;
             curr = next;
         }
 
-        // ── Finalize: RHS = accumulated sums - scalar corrections × endpoints ──
+        // Finalize: RHS = accumulated sums - scalar corrections × endpoints
         #pragma omp simd
         for (int s = 0; s < S; ++s) {
             r_left[s]  += sum_A[s] - s_ya_A * ya[s] - s_ypa_A * ypa[s]
@@ -915,30 +913,29 @@ private:
     }
 
     /**
-     * @brief Solve the tri-diagonal LS system and update yp.
+     * @brief Solve the tri-diagonal LeastSquares system and update yp.
      *
-     * Thomas algorithm for the SPD tri-diagonal system arising from the
-     * integral L² objective.
+     * LU algorithm for the SPD tri-diagonal system arising from the
+     * integral L2 objective.
      *
-     * Because the normal-equation matrix is state-independent, the Thomas
-     * factorization is O(K) SCALAR operations. The scalar multiplier m[k]
+     * Because the normal-equation matrix is state-independent, the LU
+     * factorization is O(K) scalar operations. The scalar multiplier m[k]
      * is then broadcast to all S states during the forward RHS sweep and
      * back-substitution (O(K*S)).
      *
-     * The integral objective guarantees the matrix is ALWAYS SPD:
-     *   - diag[k] = h_left³/105 + h_right³/105 > 0  for all k
+     * The integral objective guarantees the matrix is always SPD:
+     *   - diag[k] = h_left**3/105 + h_right**3/105 > 0  for all k
      *   - Strict diagonal dominance: 1/105 > 1/140
      *   - No zero-diagonal checks needed
-     *   - Completely branch-free inner loops
      */
-    void LSSolveAndUpdate() {
+    void LeastSquaresSolveAndUpdate() {
         const int K = ls_knot_count_;
         const int S = n_states_;
 
         if (K < 2) return;
 
         // For non-first intervals, knot 0 was already updated by the previous
-        // interval's LS solve (as its last knot). Fix δ_0 = 0 to prevent
+        // interval's LeastSquares solve (as its last knot). Fix δ_0 = 0 to prevent
         // double-update: zero row 0 and decouple it from knot 1.
         if (ls_interval_start_ > 0) {
             ls_diag_[0] = 1.0;
@@ -946,7 +943,7 @@ private:
             std::memset(&ls_rhs_[0], 0, static_cast<size_t>(S) * sizeof(double));
         }
 
-        // ── 1. Thomas factorization + forward RHS sweep ──
+        // 1. LU factorization + forward RHS sweep
         for (int k = 1; k < K; ++k) {
             const double m = ls_offdiag_[k - 1] / ls_diag_[k - 1];
             ls_diag_[k] -= m * ls_offdiag_[k - 1];
@@ -960,11 +957,11 @@ private:
             }
         }
 
-        // ── 2. Fused back-substitution + yp update ──
+        // 2. Fused back-substitution + yp update
         sunrealtype* yp_data = out_yp_->data()
                              + static_cast<size_t>(ls_interval_start_) * S;
 
-        // Last knot
+        // 3. Last knot
         {
             const double d_inv = 1.0 / ls_diag_[K - 1];
             double* __restrict__ x_last = &ls_rhs_[static_cast<size_t>(K - 1) * S];
@@ -977,7 +974,7 @@ private:
             }
         }
 
-        // Remaining knots (backward)
+        // 4. Remaining knots (backward)
         for (int k = K - 2; k >= 0; --k) {
             const double off_k = ls_offdiag_[k];
             const double d_inv = 1.0 / ls_diag_[k];
@@ -994,4 +991,4 @@ private:
     }
 };
 
-#endif // PYBAMM_KNOT_REDUCER_HPP
+#endif // HERMITE_KNOT_REDUCER_HPP

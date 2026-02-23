@@ -12,7 +12,7 @@ using std::vector;
 #include "Solution.hpp"
 #include "IDAKLUStats.hpp"
 #include "SolverLog.hpp"
-#include "KnotReducer.hpp"
+#include "HermiteKnotReducer.hpp"
 
 /**
  * @brief Abstract solver class based on OpenMP vectors
@@ -78,17 +78,13 @@ public:
   bool is_ODE;  // cppcheck-suppress unusedStructMember
   int length_of_return_vector;  // cppcheck-suppress unusedStructMember
   
-  // ============================================================================
-  // FLAT STORAGE ARRAYS
-  // ============================================================================
-  // All arrays are stored flat (contiguous) for cache efficiency and zero-copy
+  // Arrays are stored flat (contiguous) for cache efficiency and zero-copy
   // to numpy. Indexing uses strides:
   //   t[i]           -> t[i]
   //   y[i][j]        -> y[i * stride_y + j]      where stride_y = length_of_return_vector
   //   yp[i][j]       -> yp[i * stride_yp + j]    where stride_yp = number_of_states
   //   yS[i][p][j]    -> yS[(i * n_params + p) * stride_y + j]
   //   ypS[i][p][j]   -> ypS[(i * n_params + p) * stride_yp + j]
-  // ============================================================================
   vector<sunrealtype> t;   // [n_timesteps]
   vector<sunrealtype> y;   // [n_timesteps * length_of_return_vector]  (flat)
   vector<sunrealtype> yp;  // [n_timesteps * number_of_states]         (flat)
@@ -98,7 +94,7 @@ public:
   SolverOptions const solver_opts;
   IDAKLUStats accumulated_stats;  // Accumulated stats across reinitializations
   SolverLog log_;
-  std::unique_ptr<StreamingKnotReducer> knot_reducer;  // Streaming knot reduction (nullptr if inactive)
+  std::unique_ptr<HermiteKnotReducer> knot_reducer;  // Hermite knot reduction (nullptr if inactive)
 
   // ── Solve-duration state (valid only during solve()) ──
   bool use_knot_reduction_ = false;
@@ -237,7 +233,7 @@ public:
   void ExtendAdaptiveArrays();
 
   /**
-   * @brief Initialize storage for the solve (streaming or non-streaming)
+   * @brief Initialize storage for the solve
    */
   void InitializeSolveStorage(int n_evals, int n_interps);
 
@@ -257,7 +253,7 @@ public:
   void StoreInitialPoint(sunrealtype t0);
 
   /**
-   * @brief Save a solution point (delegates to streaming or non-streaming path)
+   * @brief Save a solution point (delegates to Hermite knot reduction or direct save path)
    */
   void SavePoint(sunrealtype t_val, bool extend_arrays, bool is_breakpoint);
 

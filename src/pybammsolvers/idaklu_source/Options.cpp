@@ -170,12 +170,12 @@ SolverOptions::SolverOptions(py::dict &py_opts)
     // For backwards compatibility, set defaults for new options
 
     // Knot reduction multiplier (1.0 = no reduction, >1.0 = active)
-    knot_multiplier = 1.0;
-    if (py_opts.contains("knot_multiplier")) {
-        knot_multiplier = py_opts["knot_multiplier"].cast<double>();
-        if (knot_multiplier < 1.0) {
+    hermite_reduction_factor = 1.0;
+    if (py_opts.contains("hermite_reduction_factor")) {
+        hermite_reduction_factor = py_opts["hermite_reduction_factor"].cast<double>();
+        if (hermite_reduction_factor < 1.0) {
             throw std::domain_error(
-                "knot_multiplier must be >= 1.0. Got " + std::to_string(knot_multiplier)
+                "hermite_reduction_factor must be >= 1.0. Got " + std::to_string(hermite_reduction_factor)
             );
         }
     }
