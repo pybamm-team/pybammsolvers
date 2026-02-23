@@ -7,6 +7,12 @@
 #include <cmath>
 #include <cstring>
 
+#ifdef _MSC_VER
+  #define PYBAMM_RESTRICT __restrict
+#else
+  #define PYBAMM_RESTRICT __restrict__
+#endif
+
 /**
  * @brief True streaming knot reducer with Bernstein-certified error bounds
  *        and optional least-squares derivative refinement.
@@ -395,25 +401,28 @@ private:
      * @param k       Window index of the knot (window_y_[k*n], window_yp_[k*n])
      * @param inv_hm  1 / h_merged
      * @param h_m     h_merged = t_new - t_anchor
-     * @param ya,ypa  Anchor state/derivative arrays (n_states)
-     * @param yn,ypn  New-point state/derivative arrays (n_states)
-     * @param dk,dpk  [out] Knot value and derivative errors (n_states)
+     * @param ya   Anchor state array (n_states)
+     * @param ypa  Anchor derivative array (n_states)
+     * @param yn   New-point state array (n_states)
+     * @param ypn  New-point derivative array (n_states)
+     * @param dk   [out] Knot value errors (n_states)
+     * @param dpk  [out] Knot derivative errors (n_states)
      */
     inline void ComputeKnotErrors(
             size_t k, sunrealtype inv_hm, sunrealtype h_m,
-            const sunrealtype* __restrict__ ya,
-            const sunrealtype* __restrict__ ypa,
-            const sunrealtype* __restrict__ yn,
-            const sunrealtype* __restrict__ ypn,
-            sunrealtype* __restrict__ dk,
-            sunrealtype* __restrict__ dpk) const
+            const sunrealtype* PYBAMM_RESTRICT ya,
+            const sunrealtype* PYBAMM_RESTRICT ypa,
+            const sunrealtype* PYBAMM_RESTRICT yn,
+            const sunrealtype* PYBAMM_RESTRICT ypn,
+            sunrealtype* PYBAMM_RESTRICT dk,
+            sunrealtype* PYBAMM_RESTRICT dpk) const
     {
         const int n = n_states_;
         const double u = (window_t_[k] - anchor_t_) * inv_hm;
         const MergedBasis B = MergedBasis::AtInterior(u, h_m, inv_hm);
 
-        const sunrealtype* __restrict__ yk  = &window_y_[k * n];
-        const sunrealtype* __restrict__ ypk = &window_yp_[k * n];
+        const sunrealtype* PYBAMM_RESTRICT yk  = &window_y_[k * n];
+        const sunrealtype* PYBAMM_RESTRICT ypk = &window_yp_[k * n];
 
         #pragma omp simd
         for (int j = 0; j < n; ++j) {
@@ -436,12 +445,12 @@ private:
      * @return true if sentinels predict rejection (skip Level 1, go to Level 2)
      */
     inline bool CheckSentinels(
-            const sunrealtype* __restrict__ dk_left,
-            const sunrealtype* __restrict__ dpk_left,
+            const sunrealtype* PYBAMM_RESTRICT dk_left,
+            const sunrealtype* PYBAMM_RESTRICT dpk_left,
             sunrealtype h_third) const
     {
-        const int* __restrict__ sent = sentinels_.data();
-        const double* __restrict__ inv_atol = inv_atol_.data();
+        const int* PYBAMM_RESTRICT sent = sentinels_.data();
+        const double* PYBAMM_RESTRICT inv_atol = inv_atol_.data();
 
         double sentinel_sum = 0.0;
         for (int s = 0; s < n_sentinels_; ++s) {
@@ -465,14 +474,14 @@ private:
      * @return Sum of squared weighted Bernstein bounds across all states.
      */
     inline double CheckLevel1(
-            const sunrealtype* __restrict__ dk_left,
-            const sunrealtype* __restrict__ dpk_left,
-            const sunrealtype* __restrict__ dk_right,
-            const sunrealtype* __restrict__ dpk_right,
+            const sunrealtype* PYBAMM_RESTRICT dk_left,
+            const sunrealtype* PYBAMM_RESTRICT dpk_left,
+            const sunrealtype* PYBAMM_RESTRICT dk_right,
+            const sunrealtype* PYBAMM_RESTRICT dpk_right,
             sunrealtype h_third, bool is_first, bool is_last) const
     {
         const int n = n_states_;
-        const double* __restrict__ inv_atol = inv_atol_.data();
+        const double* PYBAMM_RESTRICT inv_atol = inv_atol_.data();
         double sum_sq = 0.0;
 
         if (is_first) {
@@ -521,16 +530,16 @@ private:
      * @return Sum of squared WRMS-weighted Bernstein bounds across all states.
      */
     inline double CheckLevel2(
-            const sunrealtype* __restrict__ dk_left,
-            const sunrealtype* __restrict__ dpk_left,
-            const sunrealtype* __restrict__ dk_right,
-            const sunrealtype* __restrict__ dpk_right,
+            const sunrealtype* PYBAMM_RESTRICT dk_left,
+            const sunrealtype* PYBAMM_RESTRICT dpk_left,
+            const sunrealtype* PYBAMM_RESTRICT dk_right,
+            const sunrealtype* PYBAMM_RESTRICT dpk_right,
             sunrealtype h_third,
-            const sunrealtype* __restrict__ y_left,
-            const sunrealtype* __restrict__ y_right) const
+            const sunrealtype* PYBAMM_RESTRICT y_left,
+            const sunrealtype* PYBAMM_RESTRICT y_right) const
     {
         const int n = n_states_;
-        const double* __restrict__ inv_atol = inv_atol_.data();
+        const double* PYBAMM_RESTRICT inv_atol = inv_atol_.data();
         const double rtol = rtol_;
         double sum_sq = 0.0;
 
@@ -560,16 +569,16 @@ private:
      * @return Sum of squared WRMS-weighted refined Bernstein bounds.
      */
     inline double CheckLevel3(
-            const sunrealtype* __restrict__ dk_left,
-            const sunrealtype* __restrict__ dpk_left,
-            const sunrealtype* __restrict__ dk_right,
-            const sunrealtype* __restrict__ dpk_right,
+            const sunrealtype* PYBAMM_RESTRICT dk_left,
+            const sunrealtype* PYBAMM_RESTRICT dpk_left,
+            const sunrealtype* PYBAMM_RESTRICT dk_right,
+            const sunrealtype* PYBAMM_RESTRICT dpk_right,
             sunrealtype h_third,
-            const sunrealtype* __restrict__ y_left,
-            const sunrealtype* __restrict__ y_right) const
+            const sunrealtype* PYBAMM_RESTRICT y_left,
+            const sunrealtype* PYBAMM_RESTRICT y_right) const
     {
         const int n = n_states_;
-        const double* __restrict__ inv_atol = inv_atol_.data();
+        const double* PYBAMM_RESTRICT inv_atol = inv_atol_.data();
         const double rtol = rtol_;
         double sum_sq = 0.0;
 
@@ -632,25 +641,25 @@ private:
         const sunrealtype h_merged = t_new - anchor_t_;
         const sunrealtype inv_hm = 1.0 / h_merged;
 
-        const sunrealtype* __restrict__ ya = anchor_y_.data();
-        const sunrealtype* __restrict__ ypa = anchor_yp_.data();
+        const sunrealtype* PYBAMM_RESTRICT ya = anchor_y_.data();
+        const sunrealtype* PYBAMM_RESTRICT ypa = anchor_yp_.data();
 
         // Double-buffered knot error caches
-        sunrealtype* __restrict__ dk_left = dk_buf0_.data();
-        sunrealtype* __restrict__ dpk_left = dpk_buf0_.data();
-        sunrealtype* __restrict__ dk_right = dk_buf1_.data();
-        sunrealtype* __restrict__ dpk_right = dpk_buf1_.data();
+        sunrealtype* PYBAMM_RESTRICT dk_left = dk_buf0_.data();
+        sunrealtype* PYBAMM_RESTRICT dpk_left = dpk_buf0_.data();
+        sunrealtype* PYBAMM_RESTRICT dk_right = dk_buf1_.data();
+        sunrealtype* PYBAMM_RESTRICT dpk_right = dpk_buf1_.data();
 
         const size_t window_size = window_t_.size();
 
         for (size_t k = 0; k <= window_size; ++k) {
             const bool is_first = (k == 0);
             const sunrealtype t_left = is_first ? anchor_t_ : window_t_[k - 1];
-            const sunrealtype* __restrict__ y_left = is_first ? ya : &window_y_[(k - 1) * n];
+            const sunrealtype* PYBAMM_RESTRICT y_left = is_first ? ya : &window_y_[(k - 1) * n];
 
             const bool is_last = (k == window_size);
             const sunrealtype t_right = is_last ? t_new : window_t_[k];
-            const sunrealtype* __restrict__ y_right = is_last ? y_new : &window_y_[k * n];
+            const sunrealtype* PYBAMM_RESTRICT y_right = is_last ? y_new : &window_y_[k * n];
 
             const sunrealtype h_sub = t_right - t_left;
 
@@ -811,17 +820,17 @@ private:
         const int km1 = k - 1;
         const sunrealtype inv_h = 1.0 / h;
 
-        const sunrealtype* __restrict__ ya  = anchor_y_.data();
-        const sunrealtype* __restrict__ ypa = anchor_yp_.data();
-        const sunrealtype* __restrict__ yr  = &window_y_[last * S];
-        const sunrealtype* __restrict__ ypr = &window_yp_[last * S];
+        const sunrealtype* PYBAMM_RESTRICT ya  = anchor_y_.data();
+        const sunrealtype* PYBAMM_RESTRICT ypa = anchor_yp_.data();
+        const sunrealtype* PYBAMM_RESTRICT yr  = &window_y_[last * S];
+        const sunrealtype* PYBAMM_RESTRICT ypr = &window_yp_[last * S];
 
-        double* __restrict__ r_left  = &ls_rhs_[static_cast<size_t>(km1) * S];
-        double* __restrict__ r_right = &ls_rhs_[static_cast<size_t>(k) * S];
+        double* PYBAMM_RESTRICT r_left  = &ls_rhs_[static_cast<size_t>(km1) * S];
+        double* PYBAMM_RESTRICT r_right = &ls_rhs_[static_cast<size_t>(k) * S];
 
         // Zero per-state work buffers
-        double* __restrict__ sum_A = ls_sum_A_.data();
-        double* __restrict__ sum_B = ls_sum_B_.data();
+        double* PYBAMM_RESTRICT sum_A = ls_sum_A_.data();
+        double* PYBAMM_RESTRICT sum_B = ls_sum_B_.data();
         std::memset(sum_A, 0, static_cast<size_t>(S) * sizeof(double));
         std::memset(sum_B, 0, static_cast<size_t>(S) * sizeof(double));
 
@@ -887,8 +896,8 @@ private:
             s_ypr_B += c_d_B * curr.phiB + c_dp_B * curr.dphiB;
 
             // Per-state accumulation (4 FMA per state)
-            const sunrealtype* __restrict__ y_p  = &window_y_[p * S];
-            const sunrealtype* __restrict__ yp_p = &window_yp_[p * S];
+            const sunrealtype* PYBAMM_RESTRICT y_p  = &window_y_[p * S];
+            const sunrealtype* PYBAMM_RESTRICT yp_p = &window_yp_[p * S];
 
             #pragma omp simd
             for (int s = 0; s < S; ++s) {
@@ -948,8 +957,8 @@ private:
             const double m = ls_offdiag_[k - 1] / ls_diag_[k - 1];
             ls_diag_[k] -= m * ls_offdiag_[k - 1];
 
-            const double* __restrict__ r_prev = &ls_rhs_[static_cast<size_t>(k - 1) * S];
-            double* __restrict__ r_curr       = &ls_rhs_[static_cast<size_t>(k) * S];
+            const double* PYBAMM_RESTRICT r_prev = &ls_rhs_[static_cast<size_t>(k - 1) * S];
+            double* PYBAMM_RESTRICT r_curr       = &ls_rhs_[static_cast<size_t>(k) * S];
 
             #pragma omp simd
             for (int s = 0; s < S; ++s) {
@@ -964,8 +973,8 @@ private:
         // 3. Last knot
         {
             const double d_inv = 1.0 / ls_diag_[K - 1];
-            double* __restrict__ x_last = &ls_rhs_[static_cast<size_t>(K - 1) * S];
-            sunrealtype* __restrict__ yp_k = &yp_data[static_cast<size_t>(K - 1) * S];
+            double* PYBAMM_RESTRICT x_last = &ls_rhs_[static_cast<size_t>(K - 1) * S];
+            sunrealtype* PYBAMM_RESTRICT yp_k = &yp_data[static_cast<size_t>(K - 1) * S];
 
             #pragma omp simd
             for (int s = 0; s < S; ++s) {
@@ -978,9 +987,9 @@ private:
         for (int k = K - 2; k >= 0; --k) {
             const double off_k = ls_offdiag_[k];
             const double d_inv = 1.0 / ls_diag_[k];
-            double* __restrict__ x_curr       = &ls_rhs_[static_cast<size_t>(k) * S];
-            const double* __restrict__ x_next = &ls_rhs_[static_cast<size_t>(k + 1) * S];
-            sunrealtype* __restrict__ yp_k    = &yp_data[static_cast<size_t>(k) * S];
+            double* PYBAMM_RESTRICT x_curr       = &ls_rhs_[static_cast<size_t>(k) * S];
+            const double* PYBAMM_RESTRICT x_next = &ls_rhs_[static_cast<size_t>(k + 1) * S];
+            sunrealtype* PYBAMM_RESTRICT yp_k    = &yp_data[static_cast<size_t>(k) * S];
 
             #pragma omp simd
             for (int s = 0; s < S; ++s) {
