@@ -72,7 +72,6 @@ pybind11_add_module(idaklu
         src/pybammsolvers/idaklu_source/common.cpp
         src/pybammsolvers/idaklu_source/Solution.cpp
         src/pybammsolvers/idaklu_source/Solution.hpp
-        src/pybammsolvers/idaklu_source/SolutionData.cpp
         src/pybammsolvers/idaklu_source/SolutionData.hpp
         src/pybammsolvers/idaklu_source/observe.cpp
         src/pybammsolvers/idaklu_source/observe.hpp
@@ -193,6 +192,19 @@ else ()
         target_link_libraries(idaklu PRIVATE casadi)
     endif()
 endif ()
+
+# Architecture-specific optimization and math flags for the IDAKLU target.
+# -march=native: enables NEON/AVX/AVX2/FMA instructions for the build machine,
+#   allowing the compiler to honor #pragma omp simd with hardware SIMD.
+# -fno-math-errno: allows inlining fabs/fmax/sqrt without errno-setting overhead.
+# -fno-trapping-math: allows reordering around potential FP exceptions.
+if (NOT MSVC)
+    target_compile_options(idaklu PRIVATE
+        -march=native
+        -fno-math-errno
+        -fno-trapping-math
+    )
+endif()
 
 # openmp
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
