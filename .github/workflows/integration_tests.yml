@@ -46,4 +46,4 @@ jobs:
       - name: Build and test
         run: |
           # Use PyBaMM-tests nox session
-          uvx nox -s pybamm-tests
+          uvx nox -s pybamm-tests -- --branch optimal-knots
