@@ -45,6 +45,7 @@ class SolutionData
       std::vector<sunrealtype>&& yS,
       std::vector<sunrealtype>&& ypS,
       std::vector<sunrealtype>&& yterm,
+      std::vector<bool>&& events_triggered,
       ptrdiff_t arg_sens0,
       ptrdiff_t arg_sens1,
       ptrdiff_t arg_sens2,
@@ -56,6 +57,7 @@ class SolutionData
         yS_vec(std::move(yS)),
         ypS_vec(std::move(ypS)),
         yterm_vec(std::move(yterm)),
+        events_triggered_vec(std::move(events_triggered)),
         arg_sens0(arg_sens0),
         arg_sens1(arg_sens1),
         arg_sens2(arg_sens2),
@@ -73,6 +75,12 @@ class SolutionData
      * MUST be called with GIL held (i.e., in serial section).
      */
     Solution generate_solution() {
+      const auto n_events = events_triggered_vec.size();
+      py::array_t<bool> events_np(n_events);
+      auto buf = events_np.mutable_unchecked<1>();
+      for (size_t i = 0; i < n_events; i++) {
+        buf(i) = events_triggered_vec[i];
+      }
       return Solution(
         flag,
         vector_to_numpy(std::move(t_vec)),
@@ -81,7 +89,8 @@ class SolutionData
         vector_to_numpy_3d(std::move(yS_vec), arg_sens0, arg_sens1, arg_sens2),
         vector_to_numpy_3d(std::move(ypS_vec), 
                            save_hermite ? arg_sens0 : 0, arg_sens1, arg_sens2),
-        vector_to_numpy(std::move(yterm_vec))
+        vector_to_numpy(std::move(yterm_vec)),
+        std::move(events_np)
       );
     }
 
@@ -93,6 +102,7 @@ private:
     std::vector<sunrealtype> yS_vec;
     std::vector<sunrealtype> ypS_vec;
     std::vector<sunrealtype> yterm_vec;
+    std::vector<bool> events_triggered_vec;
     ptrdiff_t arg_sens0 = 0;
     ptrdiff_t arg_sens1 = 0;
     ptrdiff_t arg_sens2 = 0;
