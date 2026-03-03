@@ -162,12 +162,25 @@ SolverOptions::SolverOptions(py::dict &py_opts)
       // IDALS linear solver interface
       linear_solution_scaling(py_opts["linear_solution_scaling"].cast<sunbooleantype>()),
       epsilon_linear_tolerance(SUN_RCONST(py_opts["epsilon_linear_tolerance"].cast<double>())),
-      increment_factor(SUN_RCONST(py_opts["increment_factor"].cast<double>())),
-      num_steps_no_progress(py_opts["num_steps_no_progress"].cast<size_t>()),
-      t_no_progress(SUN_RCONST(py_opts["t_no_progress"].cast<sunrealtype>())),
-      silence_sundials_errors(py_opts["silence_sundials_errors"].cast<bool>())
+      increment_factor(SUN_RCONST(py_opts["increment_factor"].cast<double>()))
 {
-    // For backwards compatibility, set defaults for new options
+    // For backwards compatibility, set defaults for options that may not
+    // be present in older PyBaMM versions
+
+    num_steps_no_progress = 0;
+    if (py_opts.contains("num_steps_no_progress")) {
+        num_steps_no_progress = py_opts["num_steps_no_progress"].cast<size_t>();
+    }
+
+    t_no_progress = SUN_RCONST(0.0);
+    if (py_opts.contains("t_no_progress")) {
+        t_no_progress = SUN_RCONST(py_opts["t_no_progress"].cast<sunrealtype>());
+    }
+
+    silence_sundials_errors = false;
+    if (py_opts.contains("silence_sundials_errors")) {
+        silence_sundials_errors = py_opts["silence_sundials_errors"].cast<bool>();
+    }
 
     // Knot reduction multiplier (1.0 = no reduction, >1.0 = active)
     hermite_reduction_factor = 1.0;

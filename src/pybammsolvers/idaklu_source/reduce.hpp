@@ -36,12 +36,12 @@ inline py::object reduce_knots(
 {
     const size_t n_seg = ts.size();
 
-    auto* out_ts  = new std::vector<np_array_realtype>();
-    auto* out_ys  = new std::vector<np_array_realtype>();
-    auto* out_yps = new std::vector<np_array_realtype>();
-    out_ts->reserve(n_seg);
-    out_ys->reserve(n_seg);
-    out_yps->reserve(n_seg);
+    std::vector<np_array_realtype> out_ts;
+    std::vector<np_array_realtype> out_ys;
+    std::vector<np_array_realtype> out_yps;
+    out_ts.reserve(n_seg);
+    out_ys.reserve(n_seg);
+    out_yps.reserve(n_seg);
 
     for (size_t seg = 0; seg < n_seg; ++seg) {
         const sunrealtype* t_ptr = ts[seg].data();
@@ -86,27 +86,15 @@ inline py::object reduce_knots(
         }
         reducer.Finalize();
 
-        out_ts->push_back(vector_to_numpy(std::move(out_t)));
-        out_ys->push_back(vector_to_numpy(std::move(out_y)));
-        out_yps->push_back(vector_to_numpy(std::move(out_yp)));
+        out_ts.push_back(vector_to_numpy(std::move(out_t)));
+        out_ys.push_back(vector_to_numpy(std::move(out_y)));
+        out_yps.push_back(vector_to_numpy(std::move(out_yp)));
     }
 
-    // Wrap in capsules so Python owns the lifetime
-    py::capsule cap_ts(out_ts, [](void* v) {
-        delete static_cast<std::vector<np_array_realtype>*>(v);
-    });
-    py::capsule cap_ys(out_ys, [](void* v) {
-        delete static_cast<std::vector<np_array_realtype>*>(v);
-    });
-    py::capsule cap_yps(out_yps, [](void* v) {
-        delete static_cast<std::vector<np_array_realtype>*>(v);
-    });
-
-    // Return as Python-visible VectorRealtypeNdArray (opaque bind_vector)
     return py::make_tuple(
-        py::cast(std::move(*out_ts)),
-        py::cast(std::move(*out_ys)),
-        py::cast(std::move(*out_yps))
+        py::cast(std::move(out_ts)),
+        py::cast(std::move(out_ys)),
+        py::cast(std::move(out_yps))
     );
 }
 
