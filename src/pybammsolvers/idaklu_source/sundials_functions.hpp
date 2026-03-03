@@ -3,6 +3,9 @@
 
 #include "common.hpp"
 
+// IDA's internal ATimes wrapper (not static in ida_ls.c)
+extern "C" int idaLsATimes(void* ida_mem, N_Vector v, N_Vector z);
+
 template<typename T>
 void axpy(int const n, T alpha, const T* x, T* y) {
   if (!x || !y) {

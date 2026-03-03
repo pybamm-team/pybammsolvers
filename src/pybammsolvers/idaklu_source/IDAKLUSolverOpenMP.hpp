@@ -13,6 +13,7 @@ using std::vector;
 #include "IDAKLUStats.hpp"
 #include "SolverLog.hpp"
 #include "HermiteKnotReducer.hpp"
+#include "NewtonSolver.hpp"
 
 /**
  * @brief Abstract solver class based on OpenMP vectors
@@ -95,6 +96,14 @@ public:
   IDAKLUStats accumulated_stats;  // Accumulated stats across reinitializations
   SolverLog log_;
   std::unique_ptr<HermiteKnotReducer> knot_reducer;  // Hermite knot reduction (nullptr if inactive)
+  std::unique_ptr<NewtonSolver<ExprSet>> newton_solver_;
+  int len_rhs_;
+  int len_alg_;
+  std::vector<sunrealtype> y_save_;
+  std::vector<sunrealtype> yp_save_;
+  std::vector<sunrealtype> event_values_;
+  std::vector<bool> events_triggered_;
+  std::vector<int> rootsfound_;
 
   // ── Solve-duration state (valid only during solve()) ──
   bool use_knot_reduction_ = false;
@@ -207,17 +216,19 @@ public:
   void ReinitializeIntegrator(const sunrealtype& t_val);
 
   /**
-   * @brief Set a consistent initialization for the system of equations
+   * @brief Set a consistent initialization for the system of equations.
+   * Returns true if IDACalcIC was skipped (Newton pre-solve succeeded).
    */
-  void ConsistentInitialization(
+  bool ConsistentInitialization(
     const sunrealtype& t_val,
     const sunrealtype& t_next,
     const int& icopt);
 
   /**
-   * @brief Set a consistent initialization for DAEs
+   * @brief Set a consistent initialization for DAEs.
+   * Returns true if IDACalcIC was skipped (Newton pre-solve succeeded).
    */
-  void ConsistentInitializationDAE(
+  bool ConsistentInitializationDAE(
     const sunrealtype& t_val,
     const sunrealtype& t_next,
     const int& icopt);

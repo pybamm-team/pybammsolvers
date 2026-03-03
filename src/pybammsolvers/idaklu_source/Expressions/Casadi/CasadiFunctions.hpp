@@ -74,7 +74,9 @@ public:
     const std::vector<BaseFunctionType*>& var_fcns,
     const std::vector<BaseFunctionType*>& dvar_dy_fcns,
     const std::vector<BaseFunctionType*>& dvar_dp_fcns,
-    const SetupOptions& setup_opts
+    const SetupOptions& setup_opts,
+    const BaseFunctionType &alg_res_fn = BaseFunctionType(),
+    const BaseFunctionType &alg_jac_fn = BaseFunctionType()
   ) :
     rhs_alg_casadi(rhs_alg),
     jac_times_cjmass_casadi(jac_times_cjmass),
@@ -82,6 +84,10 @@ public:
     mass_action_casadi(mass_action),
     sens_casadi(sens),
     events_casadi(events),
+    has_alg_res_(!alg_res_fn.is_null() && alg_res_fn.n_in() > 0),
+    has_alg_jac_(!alg_jac_fn.is_null() && alg_jac_fn.n_in() > 0),
+    alg_res_casadi_(has_alg_res_ ? alg_res_fn : BaseFunctionType()),
+    alg_jac_casadi_(has_alg_jac_ ? alg_jac_fn : BaseFunctionType()),
     ExpressionSet<CasadiFunction>(
       static_cast<Expression*>(&rhs_alg_casadi),
       static_cast<Expression*>(&jac_times_cjmass_casadi),
@@ -96,8 +102,16 @@ public:
       static_cast<Expression*>(&sens_casadi),
       static_cast<Expression*>(&events_casadi),
       n_s, n_e, n_p,
-      setup_opts)
+      setup_opts,
+      nullptr,
+      nullptr)
   {
+    if (has_alg_res_) {
+      this->alg_res = static_cast<Expression*>(&alg_res_casadi_);
+    }
+    if (has_alg_jac_) {
+      this->alg_jac = static_cast<Expression*>(&alg_jac_casadi_);
+    }
     // convert BaseFunctionType list to CasadiFunction list
     // NOTE: You must allocate ALL std::vector elements before taking references
     for (auto& var : var_fcns)
@@ -139,6 +153,10 @@ public:
   CasadiFunction mass_action_casadi;
   CasadiFunction sens_casadi;
   CasadiFunction events_casadi;
+  bool has_alg_res_;
+  bool has_alg_jac_;
+  CasadiFunction alg_res_casadi_;
+  CasadiFunction alg_jac_casadi_;
 
   std::vector<CasadiFunction> var_fcns_casadi;
   std::vector<CasadiFunction> dvar_dy_fcns_casadi;

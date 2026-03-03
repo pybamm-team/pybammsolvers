@@ -279,13 +279,31 @@ void IDAKLUSolverOpenMP<ExprSet>::Initialize() {
   is_ODE = number_of_states > 0;
   for (int ii = 0; ii < number_of_states; ii++) {
     id_val[ii] = id_np_val[ii];
-    // check if id_val[ii] approximately equals 1 (>0.999) handles
-    // cases where id_val[ii] is not exactly 1 due to numerical errors
-    is_ODE &= id_val[ii] > 0.999;
+    is_ODE &= is_differential(id_val[ii]);
   }
 
   // Variable types: differential (1) and algebraic (0)
   CheckErrors(IDASetId(ida_mem, id), "IDASetId");
+
+  // Compute len_rhs_ and len_alg_ from the differential/algebraic IDs
+  len_rhs_ = 0;
+  for (int ii = 0; ii < number_of_states; ii++) {
+    if (is_differential(id_val[ii])) len_rhs_++;
+  }
+  len_alg_ = number_of_states - len_rhs_;
+
+  // Instantiate Newton solver for algebraic initial conditions
+  if (len_alg_ > 0) {
+    newton_solver_ = std::make_unique<NewtonSolver<ExprSet>>(
+      functions.get(), len_rhs_, len_alg_, id_val,
+      setup_opts, solver_opts, sunctx,
+      LS, J, yy, yyp, id,
+      functions->jac_times_cjmass_colptrs,
+      functions->jac_times_cjmass_rowvals,
+      rtol, avtol,
+      ida_mem
+    );
+  }
 }
 
 template <class ExprSet>
@@ -367,6 +385,25 @@ SolutionData IDAKLUSolverOpenMP<ExprSet>::solve(
 
   StoreInitialPoint(t0);
 
+  // Evaluate events at the consistent initial state
+  event_values_.resize(number_of_events);
+  events_triggered_.assign(number_of_events, false);
+  rootsfound_.resize(number_of_events);
+  bool init_event_triggered = false;
+  if (number_of_events > 0) {
+    events_eval<ExprSet>(t0, yy, yyp, event_values_.data(), functions.get());
+    for (int i = 0; i < number_of_events; i++) {
+      events_triggered_[i] = (event_values_[i] <= 0.0);
+      init_event_triggered |= events_triggered_[i];
+    }
+
+    if (init_event_triggered) {
+      retval = IDA_ROOT_RETURN;
+      log_.log_integration_complete(n_steps, t_val);
+      return BuildSolutionData(retval);
+    }
+  }
+
   // Reset the states at t = t_val. Sensitivities are handled in the while-loop
   CheckErrors(IDAGetDky(ida_mem, t_val, 0, yy), "IDAGetDky at t_val");
 
@@ -401,6 +438,13 @@ SolutionData IDAKLUSolverOpenMP<ExprSet>::solve(
     }
 
     if (hit_final_time || hit_event) {
+      if (hit_event) {
+        // Fill out the event information
+        IDAGetRootInfo(ida_mem, rootsfound_.data());
+        for (int i = 0; i < number_of_events; i++) {
+          events_triggered_[i] = (rootsfound_[i] != 0);
+        }
+      }
       break;
     } else if (hit_teval) {
       HandleBreakpoint(t_val, t_eval, i_eval, t_eval_next, no_progression);
@@ -650,6 +694,7 @@ SolutionData IDAKLUSolverOpenMP<ExprSet>::BuildSolutionData(int retval) {
     std::move(yS_reordered),
     std::move(ypS_reordered),
     std::move(yterm_vec),
+    std::move(events_triggered_),
     arg_sens0,
     arg_sens1,
     arg_sens2,
@@ -732,7 +777,7 @@ void IDAKLUSolverOpenMP<ExprSet>::ReinitializeIntegrator(const sunrealtype& t_va
 }
 
 template <class ExprSet>
-void IDAKLUSolverOpenMP<ExprSet>::ConsistentInitialization(
+bool IDAKLUSolverOpenMP<ExprSet>::ConsistentInitialization(
   const sunrealtype& t_val,
   const sunrealtype& t_next,
   const int& icopt) {
@@ -740,23 +785,55 @@ void IDAKLUSolverOpenMP<ExprSet>::ConsistentInitialization(
 
   if (is_ODE && icopt == IDA_YA_YDP_INIT) {
     ConsistentInitializationODE(t_val);
+    return true;
   } else {
-    ConsistentInitializationDAE(t_val, t_next, icopt);
+    return ConsistentInitializationDAE(t_val, t_next, icopt);
   }
 }
 
 template <class ExprSet>
-void IDAKLUSolverOpenMP<ExprSet>::ConsistentInitializationDAE(
+bool IDAKLUSolverOpenMP<ExprSet>::ConsistentInitializationDAE(
   const sunrealtype& t_val,
   const sunrealtype& t_next,
   const int& icopt) {
   DEBUG("IDAKLUSolver::ConsistentInitializationDAE");
-  // The solver requires a future time point to calculate the direction
-  // of the initial step and its order of magnitude estimate. Use a
-  // small perturbation that is consistent with the intended direction.
+
   const bool increasing = (t_next > t_val);
   sunrealtype t_next_perturbed = perturb_time(t_next, increasing);
+
+  if (newton_solver_ && icopt == IDA_YA_YDP_INIT) {
+    sunrealtype* y_val = N_VGetArrayPointer(yy);
+    sunrealtype* yp_val = N_VGetArrayPointer(yyp);
+
+    if (y_save_.size() < static_cast<size_t>(number_of_states)) {
+      y_save_.resize(number_of_states);
+      yp_save_.resize(number_of_states);
+    }
+    std::memcpy(y_save_.data(), y_val, number_of_states * sizeof(sunrealtype));
+    std::memcpy(yp_save_.data(), yp_val, number_of_states * sizeof(sunrealtype));
+
+    NewtonResult result = newton_solver_->solve(t_val, t_next, log_);
+
+    if (newton_success(result)) {
+      if (newton_solver_->is_decoupled()) {
+        ConsistentInitializationODE(t_val);
+      }
+      ReinitializeIntegrator(t_val);
+      if (!sensitivity) {
+        return true;
+      }
+      // With sensitivities, still run IDACalcIC to correct initial sensitivity
+      // values. Newton's good starting point means IDACalcIC does zero Newton
+      // iterations on the state variables.
+    } else {
+      std::memcpy(y_val, y_save_.data(), number_of_states * sizeof(sunrealtype));
+      std::memcpy(yp_val, yp_save_.data(), number_of_states * sizeof(sunrealtype));
+      ReinitializeIntegrator(t_val);
+    }
+  }
+
   IDACalcIC(ida_mem, icopt, t_next_perturbed);
+  return false;
 }
 
 template <class ExprSet>

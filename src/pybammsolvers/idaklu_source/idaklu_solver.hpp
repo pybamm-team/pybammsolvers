@@ -184,7 +184,9 @@ IDAKLUSolverGroup *create_idaklu_solver_group(
   const std::vector<typename ExprSet::BaseFunctionType*>& var_fcns,
   const std::vector<typename ExprSet::BaseFunctionType*>& dvar_dy_fcns,
   const std::vector<typename ExprSet::BaseFunctionType*>& dvar_dp_fcns,
-  py::dict py_opts
+  py::dict py_opts,
+  const typename ExprSet::BaseFunctionType &alg_res,
+  const typename ExprSet::BaseFunctionType &alg_jac
 ) {
   auto setup_opts = SetupOptions(py_opts);
   auto solver_opts = SolverOptions(py_opts);
@@ -213,7 +215,9 @@ IDAKLUSolverGroup *create_idaklu_solver_group(
       var_fcns,
       dvar_dy_fcns,
       dvar_dp_fcns,
-      setup_opts
+      setup_opts,
+      alg_res,
+      alg_jac
     );
     solvers.emplace_back(
       std::unique_ptr<IDAKLUSolver>(
