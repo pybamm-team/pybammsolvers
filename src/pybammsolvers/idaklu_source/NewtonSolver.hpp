@@ -96,22 +96,28 @@ public:
   NewtonSolveType solve_type() const { return solve_type_; }
 
 private:
-  NewtonResult solve_decoupled_full(sunrealtype t, sunrealtype t_next, SolverLog& log);
-  NewtonResult solve_decoupled_subblock(sunrealtype t, SolverLog& log);
-  NewtonResult solve_coupled_full(sunrealtype t, sunrealtype t_next, SolverLog& log);
+  // Unified Newton iteration (single implementation for all modes)
+  NewtonResult RunNewtonLoop(sunrealtype t, sunrealtype cj, SolverLog& log);
 
+  // Unified helpers used by RunNewtonLoop
+  void ComputeEwt();
+  sunrealtype WrmsNorm(const sunrealtype* vals) const;
+  sunrealtype EvalResidualAndNorm(sunrealtype t);
+  int SetupAndSolveLinearSystem(sunrealtype t, sunrealtype cj);
+  void SaveIterate();
+  void RevertIterate();
+  void ApplyStep(sunrealtype alpha, sunrealtype cj);
+
+  // Low-level residual/Jacobian evaluation
   void EvalRhsAlg(sunrealtype t, sunrealtype* res_out);
   void EvalAlgRes(sunrealtype t, sunrealtype* res_out);
   void EvalAlgJac(sunrealtype t, sunrealtype* jac_out);
   void EvalFullResidual(sunrealtype t);
   void EvalFullJacobian(sunrealtype t, sunrealtype cj);
   void ZeroDiffRowsColsJacobian();
+  void FillSubBlockJacobian(sunrealtype t);
   void CopySparsityToJIda();
   void CopySparsityToJAlg();
-
-  // WRMS norm helpers (ewt_ must be populated before calling)
-  sunrealtype WrmsNormAlg(const sunrealtype* vals) const;
-  sunrealtype WrmsNormAlgCompact(const sunrealtype* vals, int n) const;
 
   // ATimes callbacks for iterative solvers (matrix-free Newton)
   static int newton_atimes_decoupled(void* data, N_Vector v, N_Vector z);
@@ -133,11 +139,14 @@ private:
   NewtonSolveType solve_type_;
 
   sunrealtype rtol_;
-  N_Vector avtol_;  // borrowed, not owned
-
+  const sunrealtype* atol_data_;  // pointer into avtol_, cached once
   int len_rhs_;
   int len_alg_;
   int n_states_;
+
+  // Cached index sets (populated once in constructor, never scanned at runtime)
+  std::vector<int> alg_idx_;    // indices i where id[i] == algebraic
+  std::vector<int> diff_idx_;   // indices i where id[i] == differential
 
   // Full-system mode resources (borrowed from IDA, NOT owned)
   SUNLinearSolver LS_ida_;
@@ -157,6 +166,7 @@ private:
   SUNLinearSolver LS_alg_;
   N_Vector res_alg_vec_;
   N_Vector delta_alg_vec_;
+  bool use_direct_alg_;   // whether alg_res and alg_jac are available
 
   // Precomputed sub-block sparsity mapping
   int alg_nnz_;
@@ -168,6 +178,10 @@ private:
   N_Vector res_full_vec_;
   N_Vector delta_full_vec_;
   std::vector<sunrealtype> res_full_buf_;
+
+  // Pointers to active res/delta data (set once per solve, avoids per-iter dispatch)
+  sunrealtype* res_data_;
+  sunrealtype* delta_data_;
 
   // Pre-allocated buffers for Newton iteration
   std::vector<sunrealtype> y_iter_save_;     // save y before each step (for revert)
