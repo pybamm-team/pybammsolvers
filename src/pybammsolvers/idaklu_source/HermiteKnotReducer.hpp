@@ -473,7 +473,7 @@ private:
      *
      * @return Sum of squared weighted Bernstein bounds across all states.
      */
-    inline double CheckLevel1(
+    inline double CheckBernsteinConservative(
             const sunrealtype* PYBAMM_RESTRICT dk_left,
             const sunrealtype* PYBAMM_RESTRICT dpk_left,
             const sunrealtype* PYBAMM_RESTRICT dk_right,
@@ -529,7 +529,7 @@ private:
      *
      * @return Sum of squared WRMS-weighted Bernstein bounds across all states.
      */
-    inline double CheckLevel2(
+    inline double CheckBernsteinExactWRMS(
             const sunrealtype* PYBAMM_RESTRICT dk_left,
             const sunrealtype* PYBAMM_RESTRICT dpk_left,
             const sunrealtype* PYBAMM_RESTRICT dk_right,
@@ -568,7 +568,7 @@ private:
      *
      * @return Sum of squared WRMS-weighted refined Bernstein bounds.
      */
-    inline double CheckLevel3(
+    inline double CheckDeCasteljauRefinement(
             const sunrealtype* PYBAMM_RESTRICT dk_left,
             const sunrealtype* PYBAMM_RESTRICT dpk_left,
             const sunrealtype* PYBAMM_RESTRICT dk_right,
@@ -695,7 +695,7 @@ private:
                 }
 
                 // Level 1: Conservative Bernstein (division-free)
-                const double l1_sum = CheckLevel1(dk_left, dpk_left,
+                const double l1_sum = CheckBernsteinConservative(dk_left, dpk_left,
                                                   dk_right, dpk_right,
                                                   h_third, is_first, is_last);
                 if (l1_sum <= threshold_) {
@@ -716,7 +716,7 @@ private:
                 std::memset(dpk_right, 0, n * sizeof(sunrealtype));
             }
 
-            const double l2_sum = CheckLevel2(dk_left, dpk_left,
+            const double l2_sum = CheckBernsteinExactWRMS(dk_left, dpk_left,
                                               dk_right, dpk_right,
                                               h_third, y_left, y_right);
 
@@ -725,7 +725,7 @@ private:
                 if (l2_sum > 9.0 * threshold_) {
                     return false;
                 }
-                const double l3_sum = CheckLevel3(dk_left, dpk_left,
+                const double l3_sum = CheckDeCasteljauRefinement(dk_left, dpk_left,
                                                   dk_right, dpk_right,
                                                   h_third, y_left, y_right);
                 if (l3_sum > threshold_) {

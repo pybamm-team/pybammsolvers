@@ -193,14 +193,11 @@ else ()
     endif()
 endif ()
 
-# Architecture-specific optimization and math flags for the IDAKLU target.
-# -march=native: enables NEON/AVX/AVX2/FMA instructions for the build machine,
-#   allowing the compiler to honor #pragma omp simd with hardware SIMD.
+# Math flags for the IDAKLU target.
 # -fno-math-errno: allows inlining fabs/fmax/sqrt without errno-setting overhead.
 # -fno-trapping-math: allows reordering around potential FP exceptions.
 if (NOT MSVC)
     target_compile_options(idaklu PRIVATE
-        -march=native
         -fno-math-errno
         -fno-trapping-math
     )
