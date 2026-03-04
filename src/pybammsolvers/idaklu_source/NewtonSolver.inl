@@ -44,7 +44,6 @@ NewtonSolver<ExprSet>::NewtonSolver(
     LS_alg_(nullptr),
     res_alg_vec_(nullptr),
     delta_alg_vec_(nullptr),
-    use_direct_alg_(false),
     alg_nnz_(0),
     res_full_vec_(nullptr),
     delta_full_vec_(nullptr),
@@ -108,13 +107,7 @@ NewtonSolver<ExprSet>::NewtonSolver(
 
   // Allocate resources based on solve type
   switch (solve_type_) {
-    case NewtonSolveType::DECOUPLED_FULL: {
-      res_full_vec_ = N_VNew_Serial(n_states_, sunctx_);
-      delta_full_vec_ = N_VNew_Serial(n_states_, sunctx_);
-      res_full_buf_.resize(n_states_);
-      CopySparsityToJIda();
-      break;
-    }
+    case NewtonSolveType::DECOUPLED_FULL:
     case NewtonSolveType::COUPLED_FULL: {
       res_full_vec_ = N_VNew_Serial(n_states_, sunctx_);
       delta_full_vec_ = N_VNew_Serial(n_states_, sunctx_);
@@ -122,6 +115,11 @@ NewtonSolver<ExprSet>::NewtonSolver(
       break;
     }
     case NewtonSolveType::DECOUPLED_SUBBLOCK: {
+      if (functions_->alg_res == nullptr || functions_->alg_jac == nullptr) {
+        throw std::runtime_error(
+          "NewtonSolver: algebraic mode requires alg_res and alg_jac functions");
+      }
+
       PrecomputeSubBlockSparsity(jac_colptrs, jac_rowvals);
 
       res_alg_vec_ = N_VNew_Serial(len_alg_, sunctx_);
@@ -137,17 +135,8 @@ NewtonSolver<ExprSet>::NewtonSolver(
       }
       SUNLinSolInitialize(LS_alg_);
 
-      use_direct_alg_ = (functions_->alg_res != nullptr &&
-                         functions_->alg_jac != nullptr);
-
-      if (use_direct_alg_) {
-        int jac_alg_nnz = functions_->alg_jac->nnz_out();
-        full_jac_buf_.resize(jac_alg_nnz > 0 ? jac_alg_nnz : len_alg_ * n_states_);
-      } else {
-        full_jac_buf_.resize(functions_->number_of_nnz > 0
-          ? functions_->number_of_nnz : n_states_ * n_states_);
-        res_full_buf_.resize(n_states_);
-      }
+      int jac_alg_nnz = functions_->alg_jac->nnz_out();
+      full_jac_buf_.resize(jac_alg_nnz > 0 ? jac_alg_nnz : len_alg_ * n_states_);
 
       CopySparsityToJAlg();
       break;
@@ -200,48 +189,21 @@ void NewtonSolver<ExprSet>::PrecomputeSubBlockSparsity(
   const std::vector<int64_t>& jac_colptrs,
   const std::vector<int64_t>& jac_rowvals
 ) {
-  if (functions_->alg_jac) {
-    const auto& rows = functions_->alg_jac->get_row();
-    const auto& cols = functions_->alg_jac->get_col();
-    int nnz_total = functions_->alg_jac->nnz_out();
-
-    alg_colptrs_.resize(len_alg_ + 1, 0);
-    alg_rowvals_.clear();
-    alg_data_indices_.clear();
-
-    for (int alg_col = 0; alg_col < len_alg_; alg_col++) {
-      alg_colptrs_[alg_col] = static_cast<int64_t>(alg_rowvals_.size());
-      int full_col = alg_col + len_rhs_;
-      for (int k = 0; k < nnz_total; k++) {
-        if (static_cast<int>(cols[k]) == full_col) {
-          alg_rowvals_.push_back(rows[k]);
-          alg_data_indices_.push_back(k);
-        }
-      }
-    }
-    alg_colptrs_[len_alg_] = static_cast<int64_t>(alg_rowvals_.size());
-    alg_nnz_ = static_cast<int>(alg_rowvals_.size());
-    return;
-  }
-
-  // Fallback: extract from full jac_times_cjmass sparsity
-  if (jac_colptrs.empty()) {
-    alg_nnz_ = len_alg_ * len_alg_;
-    return;
-  }
+  const auto& rows = functions_->alg_jac->get_row();
+  const auto& cols = functions_->alg_jac->get_col();
+  int nnz_total = functions_->alg_jac->nnz_out();
 
   alg_colptrs_.resize(len_alg_ + 1, 0);
-  alg_data_indices_.clear();
   alg_rowvals_.clear();
+  alg_data_indices_.clear();
 
-  for (int col = len_rhs_; col < n_states_; col++) {
-    int alg_col = col - len_rhs_;
+  for (int alg_col = 0; alg_col < len_alg_; alg_col++) {
     alg_colptrs_[alg_col] = static_cast<int64_t>(alg_rowvals_.size());
-    for (int64_t k = jac_colptrs[col]; k < jac_colptrs[col + 1]; k++) {
-      int row = static_cast<int>(jac_rowvals[k]);
-      if (row >= len_rhs_) {
-        alg_rowvals_.push_back(row - len_rhs_);
-        alg_data_indices_.push_back(static_cast<int>(k));
+    int full_col = alg_col + len_rhs_;
+    for (int k = 0; k < nnz_total; k++) {
+      if (static_cast<int>(cols[k]) == full_col) {
+        alg_rowvals_.push_back(rows[k]);
+        alg_data_indices_.push_back(k);
       }
     }
   }
@@ -298,7 +260,7 @@ void NewtonSolver<ExprSet>::ComputeEwt() {
   }
 }
 
-// WRMS norm over algebraic components.
+// WRMS norm over algebraic components (used for step convergence criterion).
 // SUBBLOCK: vals is compact (length len_alg_), ewt stored at 0..len_alg_-1.
 // FULL modes: vals is full-size, iterate alg_idx_ with ewt at global indices.
 template <class ExprSet>
@@ -317,6 +279,24 @@ sunrealtype NewtonSolver<ExprSet>::WrmsNorm(const sunrealtype* vals) const {
     }
   }
   return (n > 0) ? std::sqrt(sum / n) : SUN_RCONST(0.0);
+}
+
+// Infinity norm over algebraic components (used for line search / residual checks).
+template <class ExprSet>
+sunrealtype NewtonSolver<ExprSet>::InfNorm(const sunrealtype* vals) const {
+  sunrealtype mx = SUN_RCONST(0.0);
+  if (solve_type_ == NewtonSolveType::DECOUPLED_SUBBLOCK) {
+    for (int i = 0; i < len_alg_; i++) {
+      sunrealtype a = std::abs(vals[i]);
+      if (a > mx) mx = a;
+    }
+  } else {
+    for (int idx : alg_idx_) {
+      sunrealtype a = std::abs(vals[idx]);
+      if (a > mx) mx = a;
+    }
+  }
+  return mx;
 }
 
 // Save current iterate.
@@ -341,46 +321,24 @@ void NewtonSolver<ExprSet>::SaveIterate() {
   }
 }
 
-// Revert to saved iterate.
+// Revert saved iterate and apply Newton step in a single pass.
+// alpha=0 is a pure revert; alpha=1 is a full step from saved state.
 template <class ExprSet>
-void NewtonSolver<ExprSet>::RevertIterate() {
-  sunrealtype* y_val = NV_DATA(yy_);
-  if (solve_type_ == NewtonSolveType::DECOUPLED_SUBBLOCK) {
-    std::memcpy(y_val + len_rhs_, y_iter_save_.data(),
-                len_alg_ * sizeof(sunrealtype));
-  } else {
-    for (int idx : alg_idx_) {
-      y_val[idx] = y_iter_save_[idx];
-    }
-    if (solve_type_ == NewtonSolveType::COUPLED_FULL) {
-      sunrealtype* yp_val = NV_DATA(yyp_);
-      for (int idx : diff_idx_) {
-        yp_val[idx] = yp_iter_save_[idx];
-      }
-    }
-  }
-}
-
-// Apply Newton step.
-// SUBBLOCK: y_alg[i] -= alpha * delta[i] (compact vectors).
-// DECOUPLED_FULL: y[alg] -= alpha * delta[alg].
-// COUPLED_FULL: y[alg] -= alpha * delta[alg], yp[diff] -= cj * alpha * delta[diff].
-template <class ExprSet>
-void NewtonSolver<ExprSet>::ApplyStep(sunrealtype alpha, sunrealtype cj) {
+void NewtonSolver<ExprSet>::RevertAndApply(sunrealtype alpha, sunrealtype cj) {
   sunrealtype* y_val = NV_DATA(yy_);
   if (solve_type_ == NewtonSolveType::DECOUPLED_SUBBLOCK) {
     sunrealtype* y_alg = y_val + len_rhs_;
     for (int i = 0; i < len_alg_; i++) {
-      y_alg[i] -= alpha * delta_data_[i];
+      y_alg[i] = y_iter_save_[i] - alpha * delta_data_[i];
     }
   } else {
     for (int idx : alg_idx_) {
-      y_val[idx] -= alpha * delta_data_[idx];
+      y_val[idx] = y_iter_save_[idx] - alpha * delta_data_[idx];
     }
     if (solve_type_ == NewtonSolveType::COUPLED_FULL) {
       sunrealtype* yp_val = NV_DATA(yyp_);
       for (int idx : diff_idx_) {
-        yp_val[idx] -= cj * alpha * delta_data_[idx];
+        yp_val[idx] = yp_iter_save_[idx] - cj * alpha * delta_data_[idx];
       }
     }
   }
@@ -498,53 +456,24 @@ void NewtonSolver<ExprSet>::ZeroDiffRowsColsJacobian() {
   }
 }
 
-// DECOUPLED_SUBBLOCK: fill J_alg_ from either alg_jac or full jac_times_cjmass
+// DECOUPLED_SUBBLOCK: fill J_alg_ from alg_jac
 template <class ExprSet>
 void NewtonSolver<ExprSet>::FillSubBlockJacobian(sunrealtype t) {
-  bool is_sparse = (setup_opts_.jacobian == "sparse" &&
-                    setup_opts_.linear_solver == "SUNLinSol_KLU");
+  EvalAlgJac(t, full_jac_buf_.data());
 
-  if (use_direct_alg_) {
-    EvalAlgJac(t, full_jac_buf_.data());
-
-    if (is_sparse) {
-      sunrealtype* alg_data = SUNSparseMatrix_Data(J_alg_);
-      for (int i = 0; i < alg_nnz_; i++) {
-        alg_data[i] = full_jac_buf_[alg_data_indices_[i]];
-      }
-    } else {
-      sunrealtype* alg_data = SUNDenseMatrix_Data(J_alg_);
-      for (int j = 0; j < len_alg_; j++) {
-        int full_col = j + len_rhs_;
-        for (int i = 0; i < len_alg_; i++) {
-          alg_data[j * len_alg_ + i] =
-            full_jac_buf_[full_col * len_alg_ + i];
-        }
-      }
+  if (setup_opts_.jacobian == "sparse" &&
+      setup_opts_.linear_solver == "SUNLinSol_KLU") {
+    sunrealtype* alg_data = SUNSparseMatrix_Data(J_alg_);
+    for (int i = 0; i < alg_nnz_; i++) {
+      alg_data[i] = full_jac_buf_[alg_data_indices_[i]];
     }
   } else {
-    sunrealtype cj_zero = SUN_RCONST(0.0);
-    functions_->jac_times_cjmass->m_arg[0] = &t;
-    functions_->jac_times_cjmass->m_arg[1] = NV_DATA(yy_);
-    functions_->jac_times_cjmass->m_arg[2] = functions_->inputs.data();
-    functions_->jac_times_cjmass->m_arg[3] = &cj_zero;
-    functions_->jac_times_cjmass->m_res[0] = full_jac_buf_.data();
-    (*functions_->jac_times_cjmass)();
-
-    if (is_sparse) {
-      sunrealtype* alg_data = SUNSparseMatrix_Data(J_alg_);
-      for (int i = 0; i < alg_nnz_; i++) {
-        alg_data[i] = full_jac_buf_[alg_data_indices_[i]];
-      }
-    } else {
-      sunrealtype* alg_data = SUNDenseMatrix_Data(J_alg_);
-      for (int j = 0; j < len_alg_; j++) {
-        for (int i = 0; i < len_alg_; i++) {
-          int full_row = i + len_rhs_;
-          int full_col = j + len_rhs_;
-          alg_data[j * len_alg_ + i] =
-            full_jac_buf_[full_col * n_states_ + full_row];
-        }
+    sunrealtype* alg_data = SUNDenseMatrix_Data(J_alg_);
+    for (int j = 0; j < len_alg_; j++) {
+      int full_col = j + len_rhs_;
+      for (int i = 0; i < len_alg_; i++) {
+        alg_data[j * len_alg_ + i] =
+          full_jac_buf_[full_col * len_alg_ + i];
       }
     }
   }
@@ -622,33 +551,24 @@ void NewtonSolver<ExprSet>::RestoreATimes() {
 
 // Mode-dispatching evaluation helpers
 
-// Evaluate residual and return its WRMS norm.
-// For SUBBLOCK, residual goes into res_alg_vec_ and norm is computed over
-// the compact algebraic vector. For FULL modes, residual goes into res_full_vec_
-// and norm uses alg_idx_ over the full vector.
+// Evaluate residual and return its infinity norm (matching CasADi's convention
+// for the line search and residual divergence checks).
 template <class ExprSet>
 sunrealtype NewtonSolver<ExprSet>::EvalResidualAndNorm(sunrealtype t) {
   switch (solve_type_) {
     case NewtonSolveType::DECOUPLED_FULL: {
-      EvalRhsAlg(t, res_full_buf_.data());
       sunrealtype* res = NV_DATA(res_full_vec_);
+      EvalRhsAlg(t, res);
       for (int idx : diff_idx_) res[idx] = SUN_RCONST(0.0);
-      for (int idx : alg_idx_) res[idx] = res_full_buf_[idx];
-      return WrmsNorm(res_full_buf_.data());
+      return InfNorm(res);
     }
     case NewtonSolveType::DECOUPLED_SUBBLOCK: {
-      if (use_direct_alg_) {
-        EvalAlgRes(t, res_data_);
-      } else {
-        EvalRhsAlg(t, res_full_buf_.data());
-        std::memcpy(res_data_, res_full_buf_.data() + len_rhs_,
-                    len_alg_ * sizeof(sunrealtype));
-      }
-      return WrmsNorm(res_data_);
+      EvalAlgRes(t, res_data_);
+      return InfNorm(res_data_);
     }
     case NewtonSolveType::COUPLED_FULL: {
       EvalFullResidual(t);
-      return WrmsNorm(NV_DATA(res_full_vec_));
+      return InfNorm(NV_DATA(res_full_vec_));
     }
   }
   return SUN_RCONST(0.0);
@@ -660,40 +580,28 @@ template <class ExprSet>
 int NewtonSolver<ExprSet>::SetupAndSolveLinearSystem(sunrealtype t, sunrealtype cj) {
   int flag = 0;
 
-  switch (solve_type_) {
-    case NewtonSolveType::DECOUPLED_FULL: {
-      newton_cj_ = SUN_RCONST(1.0);
-      if (!setup_opts_.using_iterative_solver) {
-        EvalFullJacobian(t, newton_cj_);
-        ZeroDiffRowsColsJacobian();
-        flag = SUNLinSolSetup(LS_ida_, J_ida_);
-        if (flag != 0) return 1;
-      }
-      flag = SUNLinSolSolve(LS_ida_, J_ida_, delta_full_vec_, res_full_vec_,
-                            SUN_RCONST(0.0));
-      return (flag != 0) ? -1 : 0;
-    }
-    case NewtonSolveType::DECOUPLED_SUBBLOCK: {
-      FillSubBlockJacobian(t);
-      flag = SUNLinSolSetup(LS_alg_, J_alg_);
-      if (flag != 0) return 1;
-      flag = SUNLinSolSolve(LS_alg_, J_alg_, delta_alg_vec_, res_alg_vec_,
-                            SUN_RCONST(0.0));
-      return (flag != 0) ? -1 : 0;
-    }
-    case NewtonSolveType::COUPLED_FULL: {
-      newton_cj_ = cj;
-      if (!setup_opts_.using_iterative_solver) {
-        EvalFullJacobian(t, cj);
-        flag = SUNLinSolSetup(LS_ida_, J_ida_);
-        if (flag != 0) return 1;
-      }
-      flag = SUNLinSolSolve(LS_ida_, J_ida_, delta_full_vec_, res_full_vec_,
-                            SUN_RCONST(0.0));
-      return (flag != 0) ? -1 : 0;
-    }
+  if (solve_type_ == NewtonSolveType::DECOUPLED_SUBBLOCK) {
+    FillSubBlockJacobian(t);
+    flag = SUNLinSolSetup(LS_alg_, J_alg_);
+    if (flag != 0) return 1;
+    flag = SUNLinSolSolve(LS_alg_, J_alg_, delta_alg_vec_, res_alg_vec_,
+                          SUN_RCONST(0.0));
+    return (flag != 0) ? -1 : 0;
   }
-  return -1;
+
+  // DECOUPLED_FULL and COUPLED_FULL share the same linear solve path
+  newton_cj_ = (solve_type_ == NewtonSolveType::DECOUPLED_FULL)
+    ? SUN_RCONST(1.0) : cj;
+  if (!setup_opts_.using_iterative_solver) {
+    EvalFullJacobian(t, newton_cj_);
+    if (solve_type_ == NewtonSolveType::DECOUPLED_FULL)
+      ZeroDiffRowsColsJacobian();
+    flag = SUNLinSolSetup(LS_ida_, J_ida_);
+    if (flag != 0) return 1;
+  }
+  flag = SUNLinSolSolve(LS_ida_, J_ida_, delta_full_vec_, res_full_vec_,
+                        SUN_RCONST(0.0));
+  return (flag != 0) ? -1 : 0;
 }
 
 // Unified Newton iteration loop
@@ -732,12 +640,13 @@ NewtonResult NewtonSolver<ExprSet>::RunNewtonLoop(
     if (delnorm <= epsNewt) {
       converged = true;
       if (delnorm <= abstolStep) {
-        ApplyStep(SUN_RCONST(1.0), cj);
+        SaveIterate();
+        RevertAndApply(SUN_RCONST(1.0), cj);
         log.log_newton_converged(iter + 1, newton_result_reason(NewtonResult::CONVERGED_WRMS_AND_STEPTOL));
         return NewtonResult::CONVERGED_WRMS_AND_STEPTOL;
       }
       if (iter > 0 && res_norm >= prev_res_norm) {
-        RevertIterate();
+        RevertAndApply(SUN_RCONST(0.0), cj);
         log.log_newton_converged(iter + 1, newton_result_reason(NewtonResult::CONVERGED_WRMS_STEP_DIVERGED));
         return NewtonResult::CONVERGED_WRMS_STEP_DIVERGED;
       }
@@ -749,8 +658,7 @@ NewtonResult NewtonSolver<ExprSet>::RunNewtonLoop(
     // Line search with Armijo condition
     sunrealtype alpha = SUN_RCONST(1.0);
     while (true) {
-      RevertIterate();
-      ApplyStep(alpha, cj);
+      RevertAndApply(alpha, cj);
 
       sunrealtype trial_norm = EvalResidualAndNorm(t);
 
