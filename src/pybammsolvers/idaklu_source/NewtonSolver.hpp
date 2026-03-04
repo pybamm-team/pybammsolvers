@@ -102,11 +102,11 @@ private:
   // Unified helpers used by RunNewtonLoop
   void ComputeEwt();
   sunrealtype WrmsNorm(const sunrealtype* vals) const;
+  sunrealtype InfNorm(const sunrealtype* vals) const;
   sunrealtype EvalResidualAndNorm(sunrealtype t);
   int SetupAndSolveLinearSystem(sunrealtype t, sunrealtype cj);
   void SaveIterate();
-  void RevertIterate();
-  void ApplyStep(sunrealtype alpha, sunrealtype cj);
+  void RevertAndApply(sunrealtype alpha, sunrealtype cj);
 
   // Low-level residual/Jacobian evaluation
   void EvalRhsAlg(sunrealtype t, sunrealtype* res_out);
@@ -166,7 +166,6 @@ private:
   SUNLinearSolver LS_alg_;
   N_Vector res_alg_vec_;
   N_Vector delta_alg_vec_;
-  bool use_direct_alg_;   // whether alg_res and alg_jac are available
 
   // Precomputed sub-block sparsity mapping
   int alg_nnz_;
@@ -177,7 +176,6 @@ private:
   // Full-system temporary buffers
   N_Vector res_full_vec_;
   N_Vector delta_full_vec_;
-  std::vector<sunrealtype> res_full_buf_;
 
   // Pointers to active res/delta data (set once per solve, avoids per-iter dispatch)
   sunrealtype* res_data_;
