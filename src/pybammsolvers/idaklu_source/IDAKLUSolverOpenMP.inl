@@ -293,7 +293,7 @@ void IDAKLUSolverOpenMP<ExprSet>::Initialize() {
   len_alg_ = number_of_states - len_rhs_;
 
   // Instantiate Newton solver for algebraic initial conditions
-  if (len_alg_ > 0) {
+  if (len_alg_ > 0 && solver_opts.calc_ic && solver_opts.newton_mode != "disabled") {
     newton_solver_ = std::make_unique<NewtonSolver<ExprSet>>(
       functions.get(), len_rhs_, len_alg_, id_val,
       setup_opts, solver_opts, sunctx,
@@ -376,6 +376,8 @@ SolutionData IDAKLUSolverOpenMP<ExprSet>::solve(
   // Progress one step before the loop to ensure IDAGetDky works at t0 for dky = 1
   int n_steps = 0;
   int retval = IDASolve(ida_mem, tf_perturbed, &t_val, yy, yyp, IDA_ONE_STEP);
+  GetSolutionFull(t0);
+  
   log_.log_step(++n_steps, t_val);
   CheckErrors(retval, "IDASolve at t0");
 
@@ -404,8 +406,8 @@ SolutionData IDAKLUSolverOpenMP<ExprSet>::solve(
     }
   }
 
-  // Reset the states at t = t_val. Sensitivities are handled in the while-loop
-  CheckErrors(IDAGetDky(ida_mem, t_val, 0, yy), "IDAGetDky at t_val");
+  // Reset the states and sensitivities at t = t_val
+  GetSolutionFull(t_val);
 
   // main integration loop
   DEBUG("IDASolve");
@@ -421,10 +423,7 @@ SolutionData IDAKLUSolverOpenMP<ExprSet>::solve(
     bool hit_final_time = t_val >= tf || (hit_teval && i_eval == number_of_evals);
     bool hit_event = retval == IDA_ROOT_RETURN;
     bool hit_adaptive = save_adaptive_steps_ && retval == IDA_SUCCESS;
-
-    if (sensitivity) {
-      CheckErrors(IDAGetSensDky(ida_mem, t_val, 0, yyS), "IDAGetSensDky during solve");
-    }
+    bool final_step = hit_final_time || hit_event;
 
     if (save_interp_steps_ && !use_knot_reduction_ && t_interp_next >= t_prev) {
       SaveInterpPoints(i_interp, t_interp_next, t_interp,
@@ -432,12 +431,11 @@ SolutionData IDAKLUSolverOpenMP<ExprSet>::solve(
     }
 
     if (hit_adaptive || hit_teval || hit_event || hit_final_time) {
-      bool will_exit_loop = hit_final_time || hit_event;
-      bool is_breakpoint = (hit_teval || hit_event) && !will_exit_loop;
+      bool is_breakpoint = (hit_teval || hit_event) && !final_step;
       SavePoint(t_val, /*extend_arrays=*/hit_adaptive, is_breakpoint);
     }
 
-    if (hit_final_time || hit_event) {
+    if (final_step) {
       if (hit_event) {
         // Fill out the event information
         IDAGetRootInfo(ida_mem, rootsfound_.data());
@@ -452,6 +450,8 @@ SolutionData IDAKLUSolverOpenMP<ExprSet>::solve(
 
     t_prev = t_val;
     retval = IDASolve(ida_mem, tf_perturbed, &t_val, yy, yyp, IDA_ONE_STEP);
+    GetSolutionFull(t_val);
+
     log_.log_step(++n_steps, t_val);
     no_progression.AddDt(t_val - t_prev);
   }
@@ -578,18 +578,32 @@ void IDAKLUSolverOpenMP<ExprSet>::SetupInitialState(
 }
 
 template <class ExprSet>
+void IDAKLUSolverOpenMP<ExprSet>::GetSolutionFull(sunrealtype t) {
+  GetSolutionStates(t);
+  GetSolutionDerivates(t);
+}
+
+template <class ExprSet>
+void IDAKLUSolverOpenMP<ExprSet>::GetSolutionStates(sunrealtype t) {
+  CheckErrors(IDAGetDky(ida_mem, t, 0, yy), "IDAGetDky");
+  if (sensitivity) {
+    CheckErrors(IDAGetSensDky(ida_mem, t, 0, yyS), "IDAGetSensDky");
+  }
+}
+
+template <class ExprSet>
+void IDAKLUSolverOpenMP<ExprSet>::GetSolutionDerivates(sunrealtype t) {
+  CheckErrors(IDAGetDky(ida_mem, t, 1, yyp), "IDAGetDky");
+  if (sensitivity) {
+    CheckErrors(IDAGetSensDky(ida_mem, t, 1, yypS), "IDAGetSensDky");
+  }
+}
+
+template <class ExprSet>
 void IDAKLUSolverOpenMP<ExprSet>::StoreInitialPoint(sunrealtype t0) {
   DEBUG("IDAKLUSolver::StoreInitialPoint");
-
-  // Retrieve consistent initial values
-  CheckErrors(IDAGetDky(ida_mem, t0, 0, yy), "IDAGetDky at t0");
-  if (sensitivity) {
-    CheckErrors(IDAGetSensDky(ida_mem, t0, 0, yyS), "IDAGetSensDky at t0");
-  }
-
   // First point: always a breakpoint (must be kept)
   if (use_knot_reduction_) {
-    CheckErrors(IDAGetDky(ida_mem, t0, 1, yyp), "IDAGetDky derivative at t0");
     knot_reducer->ProcessPoint(t0, y_val_, yp_val_, /*is_breakpoint=*/true);
   } else {
     SetStep(t0);
@@ -603,8 +617,6 @@ void IDAKLUSolverOpenMP<ExprSet>::SavePoint(
   DEBUG("IDAKLUSolver::SavePoint");
 
   if (use_knot_reduction_) {
-    // TRUE Hermite knot reducer: Process point inline, reducer decides whether to keep
-    CheckErrors(IDAGetDky(ida_mem, t_val, 1, yyp), "IDAGetDky derivative for Hermite knot reducer");
     knot_reducer->ProcessPoint(t_val, y_val_, yp_val_, is_breakpoint);
   } else {
     // Non-Hermite knot reducer: check for duplicates and save
@@ -694,7 +706,7 @@ SolutionData IDAKLUSolverOpenMP<ExprSet>::BuildSolutionData(int retval) {
     std::move(yS_reordered),
     std::move(ypS_reordered),
     std::move(yterm_vec),
-    std::move(events_triggered_),
+    std::move(events_triggered_),  // moved-from; solve() re-initializes via .assign()
     arg_sens0,
     arg_sens1,
     arg_sens2,
@@ -777,7 +789,7 @@ void IDAKLUSolverOpenMP<ExprSet>::ReinitializeIntegrator(const sunrealtype& t_va
 }
 
 template <class ExprSet>
-bool IDAKLUSolverOpenMP<ExprSet>::ConsistentInitialization(
+void IDAKLUSolverOpenMP<ExprSet>::ConsistentInitialization(
   const sunrealtype& t_val,
   const sunrealtype& t_next,
   const int& icopt) {
@@ -785,14 +797,13 @@ bool IDAKLUSolverOpenMP<ExprSet>::ConsistentInitialization(
 
   if (is_ODE && icopt == IDA_YA_YDP_INIT) {
     ConsistentInitializationODE(t_val);
-    return true;
   } else {
-    return ConsistentInitializationDAE(t_val, t_next, icopt);
+    ConsistentInitializationDAE(t_val, t_next, icopt);
   }
 }
 
 template <class ExprSet>
-bool IDAKLUSolverOpenMP<ExprSet>::ConsistentInitializationDAE(
+void IDAKLUSolverOpenMP<ExprSet>::ConsistentInitializationDAE(
   const sunrealtype& t_val,
   const sunrealtype& t_next,
   const int& icopt) {
@@ -819,13 +830,14 @@ bool IDAKLUSolverOpenMP<ExprSet>::ConsistentInitializationDAE(
         ConsistentInitializationODE(t_val);
       }
       ReinitializeIntegrator(t_val);
-      if (!sensitivity) {
-        return true;
-      }
       // With sensitivities, still run IDACalcIC to correct initial sensitivity
       // values. Newton's good starting point means IDACalcIC does zero Newton
       // iterations on the state variables.
+      if (!sensitivity) {
+        return;
+      }
     } else {
+      // Newton failed, revert to initial guess and run IDACalcIC
       std::memcpy(y_val, y_save_.data(), number_of_states * sizeof(sunrealtype));
       std::memcpy(yp_val, yp_save_.data(), number_of_states * sizeof(sunrealtype));
       ReinitializeIntegrator(t_val);
@@ -833,7 +845,6 @@ bool IDAKLUSolverOpenMP<ExprSet>::ConsistentInitializationDAE(
   }
 
   IDACalcIC(ida_mem, icopt, t_next_perturbed);
-  return false;
 }
 
 template <class ExprSet>
@@ -888,10 +899,8 @@ void IDAKLUSolverOpenMP<ExprSet>::SaveInterpPoints(
   DEBUG("IDAKLUSolver::SaveInterpPoints");
 
   while (i_interp <= (t_interp.size()-1) && t_interp_next <= t_val) {
-    CheckErrors(IDAGetDky(ida_mem, t_interp_next, 0, yy), "IDAGetDky for interpolation");
-    if (sensitivity) {
-      CheckErrors(IDAGetSensDky(ida_mem, t_interp_next, 0, yyS), "IDAGetSensDky for interpolation");
-    }
+    // For interpolation, we only need the states, not derivatives
+    GetSolutionStates(t_interp_next);
 
     // Memory is already allocated for the interpolated values
     SetStep(t_interp_next);
@@ -905,10 +914,7 @@ void IDAKLUSolverOpenMP<ExprSet>::SaveInterpPoints(
   }
 
   // Reset the states and sensitivities to t = t_val
-  CheckErrors(IDAGetDky(ida_mem, t_val, 0, yy), "IDAGetDky reset after interpolation");
-  if (sensitivity) {
-    CheckErrors(IDAGetSensDky(ida_mem, t_val, 0, yyS), "IDAGetSensDky reset after interpolation");
-  }
+  GetSolutionStates(t_val);
 }
 
 template <class ExprSet>
@@ -1039,8 +1045,6 @@ void IDAKLUSolverOpenMP<ExprSet>::SetStepHermite(
   // FLAT STORAGE: Copy derivatives to yp[i_save_ * stride_yp + j]
   DEBUG("IDAKLUSolver::SetStepHermite");
 
-  CheckErrors(IDAGetDky(ida_mem, tval, 1, yyp), "IDAGetDky for Hermite (derivative 1)");
-  
   sunrealtype* yp_dest = &yp[i_save_ * number_of_states];
   std::copy(yp_val_, yp_val_ + number_of_states, yp_dest);
 
@@ -1056,8 +1060,6 @@ void IDAKLUSolverOpenMP<ExprSet>::SetStepHermiteSensitivities(
   DEBUG("IDAKLUSolver::SetStepHermiteSensitivities");
 
   // FLAT STORAGE: ypS[(i * n_params + p) * stride + j]
-  CheckErrors(IDAGetSensDky(ida_mem, tval, 1, yypS), "IDAGetSensDky for Hermite (derivative 1)");
-  
   size_t base = i_save_ * number_of_parameters * number_of_states;
   for (size_t p = 0; p < number_of_parameters; ++p) {
     sunrealtype* dest = &ypS[base + p * number_of_states];

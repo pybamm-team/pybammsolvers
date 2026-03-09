@@ -3,7 +3,10 @@
 
 #include "common.hpp"
 
-// IDA's internal ATimes wrapper (not static in ida_ls.c)
+// IDA's internal ATimes wrapper, used to restore the default ATimes callback
+// after Newton IC solve temporarily replaces it. This symbol is non-static in
+// ida_ls.c / idas_ls.c but is NOT part of the public SUNDIALS API. Verified
+// present in SUNDIALS v6.x/v7.x; may need updating if SUNDIALS internals change.
 extern "C" int idaLsATimes(void* ida_mem, N_Vector v, N_Vector z);
 
 template<typename T>

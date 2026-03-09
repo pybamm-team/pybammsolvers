@@ -157,6 +157,7 @@ private:
 
   // Iterative solver support (matrix-free ATimes)
   void* ida_mem_;
+  sunrealtype newton_t_;
   sunrealtype newton_cj_;
   std::vector<sunrealtype> atimes_tmp_;       // scratch for mass_action result in ComputeJv
   std::vector<sunrealtype> atimes_v_save_;    // scratch for saving diff components of v

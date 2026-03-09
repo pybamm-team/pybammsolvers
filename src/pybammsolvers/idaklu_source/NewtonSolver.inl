@@ -39,6 +39,7 @@ NewtonSolver<ExprSet>::NewtonSolver(
     yyp_(yyp),
     id_(id),
     ida_mem_(ida_mem),
+    newton_t_(SUN_RCONST(0.0)),
     newton_cj_(SUN_RCONST(1.0)),
     J_alg_(nullptr),
     LS_alg_(nullptr),
@@ -484,9 +485,7 @@ void NewtonSolver<ExprSet>::FillSubBlockJacobian(sunrealtype t) {
 // Jv = (dF/dy)*v + cj*(dF/dyp)*v = (dF/dy - cj*M)*v
 template <class ExprSet>
 int NewtonSolver<ExprSet>::ComputeJv(N_Vector v, N_Vector Jv) {
-  sunrealtype tt = SUN_RCONST(0.0);
-
-  functions_->jac_action->m_arg[0] = &tt;
+  functions_->jac_action->m_arg[0] = &newton_t_;
   functions_->jac_action->m_arg[1] = NV_DATA(yy_);
   functions_->jac_action->m_arg[2] = functions_->inputs.data();
   functions_->jac_action->m_arg[3] = NV_DATA(v);
@@ -537,6 +536,7 @@ int NewtonSolver<ExprSet>::newton_atimes_full(void* data, N_Vector v, N_Vector z
 template <class ExprSet>
 void NewtonSolver<ExprSet>::SetupATimes() {
   if (!setup_opts_.using_iterative_solver) return;
+
   SUNATimesFn atimes_fn = (solve_type_ == NewtonSolveType::DECOUPLED_FULL)
     ? &NewtonSolver<ExprSet>::newton_atimes_decoupled
     : &NewtonSolver<ExprSet>::newton_atimes_full;
@@ -546,6 +546,7 @@ void NewtonSolver<ExprSet>::SetupATimes() {
 template <class ExprSet>
 void NewtonSolver<ExprSet>::RestoreATimes() {
   if (!setup_opts_.using_iterative_solver) return;
+  
   SUNLinSolSetATimes(LS_ida_, ida_mem_, idaLsATimes);
 }
 
@@ -611,6 +612,7 @@ NewtonResult NewtonSolver<ExprSet>::RunNewtonLoop(
   sunrealtype t, sunrealtype cj, SolverLog& log
 ) {
   const int max_iter = solver_opts_.max_num_iterations_ic;
+  const int max_backtracks = solver_opts_.max_linesearch_backtracks_ic;
   const sunrealtype epsNewt = solver_opts_.nonlinear_convergence_coefficient_ic;
   const sunrealtype abstolStep = solver_opts_.newton_step_tol;
 
@@ -657,7 +659,7 @@ NewtonResult NewtonSolver<ExprSet>::RunNewtonLoop(
 
     // Line search with Armijo condition
     sunrealtype alpha = SUN_RCONST(1.0);
-    while (true) {
+    for (int ls = 0; ls < max_backtracks; ls++) {
       RevertAndApply(alpha, cj);
 
       sunrealtype trial_norm = EvalResidualAndNorm(t);
@@ -692,6 +694,7 @@ NewtonResult NewtonSolver<ExprSet>::solve(
   if (len_alg_ <= 0) return NewtonResult::CONVERGED_WRMS_AND_STEPTOL;
 
   log.log_newton_start(t, len_alg_);
+  newton_t_ = t;
   SetupATimes();
 
   // Set active data pointers based on mode
@@ -708,7 +711,7 @@ NewtonResult NewtonSolver<ExprSet>::solve(
   if (solve_type_ == NewtonSolveType::COUPLED_FULL) {
     sunrealtype hic = SUN_RCONST(0.001) * std::abs(t_next - t);
     if (hic == SUN_RCONST(0.0)) hic = SUN_RCONST(1.0e-6);
-    const int max_nh = solver_opts_.max_num_steps_ic > 0;
+    const int max_nh = solver_opts_.max_num_steps_ic;
 
     sunrealtype* y_val = NV_DATA(yy_);
     sunrealtype* yp_val = NV_DATA(yyp_);
