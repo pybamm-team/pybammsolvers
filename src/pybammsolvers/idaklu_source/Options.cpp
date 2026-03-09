@@ -194,12 +194,18 @@ SolverOptions::SolverOptions(py::dict &py_opts)
     }
 
     // Newton solver for algebraic initial conditions
-    newton_step_tol = 1e-10;
+    newton_step_tol = 1e-6;
     if (py_opts.contains("newton_step_tol")) {
         newton_step_tol = py_opts["newton_step_tol"].cast<double>();
     }
     newton_mode = "algebraic";
     if (py_opts.contains("newton_mode")) {
         newton_mode = py_opts["newton_mode"].cast<std::string>();
+    }
+    if (newton_mode != "full" && newton_mode != "algebraic" && newton_mode != "disabled") {
+        throw std::domain_error(
+            "Invalid newton_mode '" + newton_mode +
+            "'. Must be 'full', 'algebraic' or 'disabled'."
+        );
     }
 }

@@ -217,18 +217,16 @@ public:
 
   /**
    * @brief Set a consistent initialization for the system of equations.
-   * Returns true if IDACalcIC was skipped (Newton pre-solve succeeded).
    */
-  bool ConsistentInitialization(
+  void ConsistentInitialization(
     const sunrealtype& t_val,
     const sunrealtype& t_next,
     const int& icopt);
 
   /**
    * @brief Set a consistent initialization for DAEs.
-   * Returns true if IDACalcIC was skipped (Newton pre-solve succeeded).
    */
-  bool ConsistentInitializationDAE(
+  void ConsistentInitializationDAE(
     const sunrealtype& t_val,
     const sunrealtype& t_next,
     const int& icopt);
@@ -257,6 +255,24 @@ public:
     const sunrealtype *yp0,
     const sunrealtype *inputs
   );
+
+  /**
+   * @brief Retrieve solution from IDA at time t.
+   * @param t The time at which to retrieve the solution.
+   */
+  void GetSolutionFull(sunrealtype t);
+
+  /**
+   * @brief Retrieve states y from IDA at time t (dky=0).
+   * @param t The time at which to retrieve the solution.
+   */
+  void GetSolutionStates(sunrealtype t);
+
+  /**
+   * @brief Retrieve derivatives yp from IDA at time t (dky=1).
+   * @param t The time at which to retrieve the solution.
+   */
+  void GetSolutionDerivates(sunrealtype t);
 
   /**
    * @brief Store the initial point (t0) after consistent initialization
