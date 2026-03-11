@@ -375,15 +375,11 @@ static vector<casadi_int> compute_active_y_indices(const casadi::Function& func)
         return all_y_indices(ny);
     }
 
-    // Get the sparsity pattern of the y derivatives
+    // Get the y-dependent indices
     casadi::Sparsity sp = func.jac_sparsity(0, y_arg_index, true);
     vector<casadi_int> cols = sp.get_col();
     std::sort(cols.begin(), cols.end());
     cols.erase(std::unique(cols.begin(), cols.end()), cols.end());
-
-    if (cols.empty() || static_cast<casadi_int>(cols.size()) == ny) {
-        return all_y_indices(ny);
-    }
 
     return cols;
 }
