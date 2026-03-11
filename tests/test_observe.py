@@ -46,9 +46,9 @@ def _make_dense_and_sparse_pair(name, inputs_sym, outputs_expr):
 
 
 def _casadi_symbols():
-    t = casadi.MX.sym("t")
-    y = casadi.MX.sym("y", NY)
-    p = casadi.MX.sym("p", 2)
+    t = casadi.SX.sym("t")
+    y = casadi.SX.sym("y", NY)
+    p = casadi.SX.sym("p", 2)
     return t, y, p
 
 
