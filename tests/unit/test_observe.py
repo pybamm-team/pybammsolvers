@@ -35,7 +35,9 @@ def _make_dense_and_sparse_pair(name, inputs_sym, outputs_expr):
     f_sparse = casadi.Function(name, inputs_sym, [outputs_expr])
     diff_flags = [True] * n_in
     diff_flags[1] = False
-    f_dense = casadi.Function(name, inputs_sym, [outputs_expr], {"is_diff_in": diff_flags})
+    f_dense = casadi.Function(
+        name, inputs_sym, [outputs_expr], {"is_diff_in": diff_flags}
+    )
 
     assert f_sparse.is_diff_in(1) is True
     assert f_dense.is_diff_in(1) is False
@@ -48,6 +50,7 @@ def _casadi_symbols():
     y = casadi.MX.sym("y", NY)
     p = casadi.MX.sym("p", 2)
     return t, y, p
+
 
 class TestObserve:
     def test_hermite_accuracy_against_analytic_function(self, test_data):
@@ -179,7 +182,7 @@ class TestObserveHermiteInterpSparsity:
 
         np.testing.assert_array_equal(result_sparse, result_dense)
 
-    def test_scalar_all_y(self, test_data): 
+    def test_scalar_all_y(self, test_data):
         ts, ys, yps, inputs, t_interp = test_data
         t, y, p = _casadi_symbols()
 
