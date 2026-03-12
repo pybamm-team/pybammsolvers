@@ -53,6 +53,8 @@ def _casadi_symbols():
 
 
 class TestObserve:
+    pytestmark = pytest.mark.unit
+
     def test_hermite_accuracy_against_analytic_function(self, test_data):
         t_knots = np.linspace(0, 2 * np.pi, N_INTERP, dtype=np.float64)
         ys = np.zeros((NY, len(t_knots)), dtype=np.float64, order="F")
@@ -85,6 +87,8 @@ class TestObserve:
 
 
 class TestObserveSparsity:
+    pytestmark = pytest.mark.unit
+
     def test_scalar_sparse_y(self, test_data):
         ts, ys, _, inputs, _ = test_data
         t, y, p = _casadi_symbols()
@@ -163,6 +167,8 @@ class TestObserveSparsity:
 
 
 class TestObserveHermiteInterpSparsity:
+    pytestmark = pytest.mark.unit
+
     def test_scalar_sparse_y(self, test_data):
         ts, ys, yps, inputs, t_interp = test_data
         t, y, p = _casadi_symbols()
