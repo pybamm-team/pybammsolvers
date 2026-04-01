@@ -3,8 +3,7 @@
 // ────────────────────── Constructor ──────────────────────
 
 inline NonlinearSolver::NonlinearSolver(
-  ResidualFn eval_residual,
-  LinearSolveFn solve_linear,
+  NonlinearSystem& system,
   int n_vars,
   const sunrealtype* atol_data,
   sunrealtype rtol,
@@ -20,8 +19,7 @@ inline NonlinearSolver::NonlinearSolver(
     max_iter_(max_iter),
     max_backtracks_(max_backtracks),
     epsNewt_(epsNewt),
-    eval_residual_(std::move(eval_residual)),
-    solve_linear_(std::move(solve_linear)),
+    system_(system),
     diff_idx_(diff_idx),
     is_coupled_(is_coupled),
     last_num_iterations_(0)
@@ -79,7 +77,7 @@ inline void NonlinearSolver::RevertAndApply(sunrealtype alpha) {
 // ────────────────────── Evaluate residual ──────────────────────
 
 inline sunrealtype NonlinearSolver::EvalResidualAndNorm(sunrealtype t) {
-  eval_residual_(t, x_.data(), res_.data());
+  system_.eval_residual(t, x_.data(), res_.data());
   if (!is_coupled_) ZeroDiffComponents(res_.data());
   return InfNorm(res_.data());
 }
@@ -89,7 +87,7 @@ inline sunrealtype NonlinearSolver::EvalResidualAndNorm(sunrealtype t) {
 inline int NonlinearSolver::SetupAndSolveLinearSystem(sunrealtype t) {
   int flag;
   try {
-    flag = solve_linear_(t, x_.data(), res_.data(), delta_.data());
+    flag = system_.solve_linear(t, x_.data(), res_.data(), delta_.data());
   } catch (...) {
     return 1;  // LSETUP_FAIL
   }

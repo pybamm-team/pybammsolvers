@@ -1,6 +1,6 @@
 #include "CasadiFunctions.hpp"
 #include <casadi/core/sparsity.hpp>
-#include <cassert>
+#include <stdexcept>
 
 CasadiFunction::CasadiFunction(const BaseFunctionType &f) : Expression(), m_func(f)
 {
@@ -35,7 +35,9 @@ CasadiFunction::CasadiFunction(const BaseFunctionType &f) : Expression(), m_func
 // Contract: nnz_out() == 0 means "no function provided; do not call operator()"
 void CasadiFunction::operator()()
 {
-  assert(!m_func.is_null() && "Cannot call operator() on an empty CasadiFunction");
+  if (m_func.is_null()) {
+    throw std::runtime_error("Cannot call operator() on a null CasadiFunction");
+  }
   DEBUG("CasadiFunction operator(): " << m_func.name());
   int mem = m_func.checkout();
   m_func(m_arg.data(), m_res.data(), m_iw.data(), m_w.data(), mem);
@@ -73,7 +75,9 @@ const std::vector<expr_int>& CasadiFunction::get_col() {
 void CasadiFunction::operator()(const std::vector<sunrealtype*>& inputs,
                                 const std::vector<sunrealtype*>& results)
 {
-  assert(!m_func.is_null() && "Cannot call operator() on an empty CasadiFunction");
+  if (m_func.is_null()) {
+    throw std::runtime_error("Cannot call operator() on a null CasadiFunction");
+  }
   DEBUG("CasadiFunction operator() with inputs and results: " << m_func.name());
 
   // Set-up input arguments, provide result vector, then execute function

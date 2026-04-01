@@ -9,8 +9,6 @@
 #include <cstring>
 #include <stdexcept>
 #include <string>
-#include <functional>
-
 enum class NonlinearResult {
   CONVERGED_WRMS_AND_STEPTOL,
   CONVERGED_WRMS_STEP_DIVERGED,
@@ -39,6 +37,20 @@ inline const char* nonlinear_result_reason(NonlinearResult r) {
 }
 
 /**
+ * @brief Abstract interface for the nonlinear system solved by NonlinearSolver.
+ *
+ * Concrete implementations provide the residual evaluation and linear solve
+ * for a specific algebraic IC mode (sub-block, decoupled-full, coupled-full).
+ */
+class NonlinearSystem {
+public:
+  virtual ~NonlinearSystem() = default;
+  virtual void eval_residual(sunrealtype t, const sunrealtype* y, sunrealtype* res) = 0;
+  virtual int solve_linear(sunrealtype t, const sunrealtype* y,
+                           sunrealtype* res, sunrealtype* delta) = 0;
+};
+
+/**
  * @brief Newton solver for consistent initial conditions.
  *
  * Operates on the full n_states system using IDA's existing LS/J.
@@ -49,13 +61,8 @@ inline const char* nonlinear_result_reason(NonlinearResult r) {
  */
 class NonlinearSolver {
 public:
-  using ResidualFn = std::function<void(sunrealtype t, const sunrealtype* y, sunrealtype* res)>;
-  using LinearSolveFn = std::function<int(sunrealtype t, const sunrealtype* y,
-                                          sunrealtype* res, sunrealtype* delta)>;
-
   NonlinearSolver(
-    ResidualFn eval_residual,
-    LinearSolveFn solve_linear,
+    NonlinearSystem& system,
     int n_vars,
     const sunrealtype* atol_data,
     sunrealtype rtol,
@@ -102,8 +109,7 @@ private:
   int max_backtracks_;
   sunrealtype epsNewt_;
 
-  ResidualFn eval_residual_;
-  LinearSolveFn solve_linear_;
+  NonlinearSystem& system_;
 
   std::vector<int> diff_idx_;
   bool is_coupled_;

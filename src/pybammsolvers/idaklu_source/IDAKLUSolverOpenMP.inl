@@ -44,11 +44,9 @@ IDAKLUSolverOpenMP<ExprSet>::IDAKLUSolverOpenMP(
   SUNContext_Create(NULL, &sunctx);  // calls null-wrapper if Sundials Ver<6
 
   // Optionally silence SUNDIALS error messages (handled in PyBaMM)
-  #if SUNDIALS_VERSION_MAJOR >= 7
-    if (solver_input.silence_sundials_errors) {
-      SUNContext_ClearErrHandlers(sunctx);
-    }
-  #endif
+  if (solver_input.silence_sundials_errors) {
+    SUNContext_ClearErrHandlers(sunctx);
+  }
 
   // allocate memory for solver
   ida_mem = IDACreate(sunctx);
@@ -805,12 +803,8 @@ bool IDAKLUSolverOpenMP<ExprSet>::TryNewtonIC(
     ida.SetEpsNewt();
   }
 
-  if (y_save_.size() < static_cast<size_t>(number_of_states)) {
-    y_save_.resize(number_of_states);
-    yp_save_.resize(number_of_states);
-  }
-  std::memcpy(y_save_.data(), y_val, number_of_states * sizeof(sunrealtype));
-  std::memcpy(yp_save_.data(), yp_val, number_of_states * sizeof(sunrealtype));
+  std::vector<sunrealtype> y_save(y_val, y_val + number_of_states);
+  std::vector<sunrealtype> yp_save(yp_val, yp_val + number_of_states);
 
   bool solve_ok = false;
 
@@ -852,8 +846,8 @@ bool IDAKLUSolverOpenMP<ExprSet>::TryNewtonIC(
     return true;
   }
 
-  std::memcpy(y_val, y_save_.data(), number_of_states * sizeof(sunrealtype));
-  std::memcpy(yp_val, yp_save_.data(), number_of_states * sizeof(sunrealtype));
+  std::memcpy(y_val, y_save.data(), number_of_states * sizeof(sunrealtype));
+  std::memcpy(yp_val, yp_save.data(), number_of_states * sizeof(sunrealtype));
   ReinitializeIntegrator(t_val);
   return false;
 }

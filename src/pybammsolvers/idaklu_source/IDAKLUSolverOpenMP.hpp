@@ -138,6 +138,7 @@ public:
   struct AlgSolverState {
     enum class Mode { SUBBLOCK, DECOUPLED_FULL, COUPLED_FULL };
     Mode mode = Mode::DECOUPLED_FULL;
+    std::unique_ptr<NonlinearSystem> system;
     std::unique_ptr<NonlinearSolver> solver;
     std::vector<int> alg_idx;
     std::vector<int> diff_idx;
@@ -156,8 +157,6 @@ public:
 
   int len_rhs_;
   int len_alg_;
-  std::vector<sunrealtype> y_save_;
-  std::vector<sunrealtype> yp_save_;
   std::vector<sunrealtype> event_values_;
   std::vector<int> rootsfound_;
 
@@ -171,9 +170,7 @@ public:
   vector<sunrealtype *> yS_val_;
   vector<sunrealtype *> ypS_val_;
 
-#if SUNDIALS_VERSION_MAJOR >= 6
   SUNContext sunctx;
-#endif
 
 public:
   /**
@@ -308,13 +305,13 @@ public:
 
   /**
    * @brief Shared linear-solve helper for DECOUPLED_FULL and COUPLED_FULL modes.
-   * Wraps ida_lsetup/ida_lsolve via IDAInternals.
-   * @param update_yp If false, yp is left unchanged (decoupled). Caller handles yp (coupled).
+   * Copies y_in into yy, then wraps ida_lsetup/ida_lsolve via IDAInternals.
+   * Callers that need yp updated must do so before calling.
    */
   int SolveViaIDALinearSolver(
     N_Vector yy_ptr, N_Vector yyp_ptr,
     const sunrealtype* y_in, sunrealtype* res, sunrealtype* delta,
-    sunrealtype cj, bool update_yp);
+    sunrealtype cj);
 
   /**
    * @brief Extend the adaptive arrays by 1
