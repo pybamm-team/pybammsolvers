@@ -13,7 +13,7 @@ using std::vector;
 #include "IDAKLUStats.hpp"
 #include "SolverLog.hpp"
 #include "HermiteKnotReducer.hpp"
-#include "NewtonSolver.hpp"
+#include "NonlinearSolver.hpp"
 
 /**
  * @brief Abstract solver class based on OpenMP vectors
@@ -96,13 +96,40 @@ public:
   IDAKLUStats accumulated_stats;  // Accumulated stats across reinitializations
   SolverLog log_;
   std::unique_ptr<HermiteKnotReducer> knot_reducer;  // Hermite knot reduction (nullptr if inactive)
-  std::unique_ptr<NewtonSolver<ExprSet>> newton_solver_;
+
+  // Algebraic IC solver state (heap-allocated to preserve class layout)
+  struct AlgSolverState {
+    enum class Mode { NONE, DECOUPLED_SUBBLOCK, DECOUPLED_FULL, COUPLED_FULL };
+    Mode mode = Mode::NONE;
+    std::unique_ptr<LinearSolver> ls;
+    std::unique_ptr<NonlinearSolver> solver;
+    std::vector<int> alg_idx;
+    std::vector<int> diff_idx;
+    int alg_nnz = 0;
+    std::vector<int64_t> alg_colptrs;
+    std::vector<int64_t> alg_rowvals;
+    std::vector<int> alg_data_indices;
+    std::vector<sunrealtype> full_jac_buf;
+    std::vector<sunrealtype> atimes_tmp;
+    std::vector<sunrealtype> atimes_v_save;
+    sunrealtype newton_t = 0;
+    sunrealtype newton_cj = 0;
+    std::vector<sunrealtype> y0_save_ic;
+    std::vector<sunrealtype> yp0_save_ic;
+
+    ~AlgSolverState() {
+      solver.reset();
+      ls.reset();
+    }
+  };
+  std::unique_ptr<AlgSolverState> alg_state_;
+
   int len_rhs_;
   int len_alg_;
   std::vector<sunrealtype> y_save_;
   std::vector<sunrealtype> yp_save_;
   std::vector<sunrealtype> event_values_;
-  std::vector<bool> events_triggered_;
+  std::vector<sunrealtype> events_triggered_;
   std::vector<int> rootsfound_;
 
   // ── Solve-duration state (valid only during solve()) ──
@@ -235,6 +262,22 @@ public:
    * @brief Set a consistent initialization for ODEs
    */
   void ConsistentInitializationODE(const sunrealtype& t_val);
+
+  /**
+   * @brief Build the algebraic solver (LinearSolver + NonlinearSolver)
+   * based on the detected mode (SUBBLOCK, DECOUPLED_FULL, COUPLED_FULL).
+   */
+  void BuildAlgebraicSolver(const sunrealtype* id_val);
+
+  bool CheckMassMatrixAlignment(const sunrealtype* id_val);
+  void PrecomputeSubBlockSparsity();
+
+  // ATimes for iterative solvers in FULL modes
+  int ComputeJv(N_Vector v, N_Vector Jv);
+  static int newton_atimes_decoupled(void* data, N_Vector v, N_Vector z);
+  static int newton_atimes_full(void* data, N_Vector v, N_Vector z);
+  void SetupATimes();
+  void RestoreATimes();
 
   /**
    * @brief Extend the adaptive arrays by 1

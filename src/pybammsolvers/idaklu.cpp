@@ -16,6 +16,8 @@
 #include "idaklu_source/Expressions/Casadi/CasadiFunctions.hpp"
 #include "idaklu_source/sundials_error_handler.hpp"
 #include "idaklu_source/reduce.hpp"
+#include "idaklu_source/LinearSolver.hpp"
+#include "idaklu_source/NonlinearSolver.hpp"
 
 
 casadi::Function generate_casadi_function(const std::string &data)
@@ -168,4 +170,58 @@ PYBIND11_MODULE(idaklu, m)
     .def_readwrite("y_term", &Solution::y_term)
     .def_readwrite("flag", &Solution::flag)
     .def_readwrite("events_triggered", &Solution::events_triggered);
+
+  py::class_<LinearSolver>(m, "LinearSolver")
+    .def("factorize", static_cast<void (LinearSolver::*)(np_array)>(&LinearSolver::factorize),
+      py::arg("values"))
+    .def("solve", static_cast<np_array (LinearSolver::*)(np_array, py::object)>(&LinearSolver::solve),
+      py::arg("b"), py::arg("out") = py::none())
+    .def("solve_batched", &LinearSolver::solve_batched,
+      py::arg("B"), py::arg("out") = py::none())
+    .def_property_readonly("n", &LinearSolver::n)
+    .def_property_readonly("nnz", &LinearSolver::nnz)
+    .def_property_readonly("can_factorize", &LinearSolver::can_factorize);
+
+  m.def("create_linear_solver",
+    [](py::object scipy_sparse, py::dict options) {
+      return new LinearSolver(scipy_sparse, options);
+    },
+    "Create a linear solver from a scipy sparse matrix",
+    py::arg("matrix"),
+    py::arg("options"),
+    py::return_value_policy::take_ownership);
+
+  py::class_<NonlinearSolver>(m, "NonlinearSolver")
+    .def("solve",
+      static_cast<py::object (NonlinearSolver::*)(np_array, np_array, np_array, py::object)>(&NonlinearSolver::solve),
+      "Solve F(t, x, p) = 0 for each t in t_eval",
+      py::arg("t_eval"),
+      py::arg("x0"),
+      py::arg("inputs"),
+      py::arg("out") = py::none());
+
+  m.def("create_nonlinear_solver",
+    [](const casadi::Function &residual_fn,
+       const casadi::Function &jacobian_fn,
+       int n_vars,
+       np_array atol,
+       double rtol,
+       double step_tol,
+       int inputs_length,
+       py::dict options) {
+      return new NonlinearSolver(
+        residual_fn, jacobian_fn, n_vars,
+        atol, rtol, step_tol, inputs_length, options
+      );
+    },
+    "Create a nonlinear solver for F(t, x, p) = 0",
+    py::arg("residual"),
+    py::arg("jacobian"),
+    py::arg("n_vars"),
+    py::arg("atol"),
+    py::arg("rtol"),
+    py::arg("step_tol"),
+    py::arg("inputs"),
+    py::arg("options"),
+    py::return_value_policy::take_ownership);
 }

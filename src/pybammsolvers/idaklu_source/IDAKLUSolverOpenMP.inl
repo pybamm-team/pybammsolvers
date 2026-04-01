@@ -292,24 +292,21 @@ void IDAKLUSolverOpenMP<ExprSet>::Initialize() {
   }
   len_alg_ = number_of_states - len_rhs_;
 
-  // Instantiate Newton solver for algebraic initial conditions
+  // Build algebraic solver (LinearSolver + NonlinearSolver)
   if (len_alg_ > 0 && solver_opts.calc_ic && solver_opts.newton_mode != "disabled") {
-    newton_solver_ = std::make_unique<NewtonSolver<ExprSet>>(
-      functions.get(), len_rhs_, len_alg_, id_val,
-      setup_opts, solver_opts, sunctx,
-      LS, J, yy, yyp, id,
-      functions->jac_times_cjmass_colptrs,
-      functions->jac_times_cjmass_rowvals,
-      rtol, avtol,
-      ida_mem
-    );
+    BuildAlgebraicSolver(id_val);
   }
 }
 
 template <class ExprSet>
 IDAKLUSolverOpenMP<ExprSet>::~IDAKLUSolverOpenMP() {
   DEBUG("IDAKLUSolverOpenMP::~IDAKLUSolverOpenMP");
-  // Free memory
+
+  // Destroy algebraic solver BEFORE freeing IDA resources, because in
+  // borrowed mode the LinearSolver holds N_Vectors created with IDA's sunctx
+  // and references IDA's LS/J pointers.
+  alg_state_.reset();
+
   if (sensitivity) {
       IDASensFree(ida_mem);
   }
@@ -389,14 +386,14 @@ SolutionData IDAKLUSolverOpenMP<ExprSet>::solve(
 
   // Evaluate events at the consistent initial state
   event_values_.resize(number_of_events);
-  events_triggered_.assign(number_of_events, false);
+  events_triggered_.assign(number_of_events, SUN_RCONST(0.0));
   rootsfound_.resize(number_of_events);
   bool init_event_triggered = false;
   if (number_of_events > 0) {
     events_eval<ExprSet>(t0, yy, yyp, event_values_.data(), functions.get());
     for (int i = 0; i < number_of_events; i++) {
-      events_triggered_[i] = (event_values_[i] <= 0.0);
-      init_event_triggered |= events_triggered_[i];
+      events_triggered_[i] = (event_values_[i] <= 0.0) ? SUN_RCONST(1.0) : SUN_RCONST(0.0);
+      init_event_triggered |= (event_values_[i] <= 0.0);
     }
 
     if (init_event_triggered) {
@@ -440,7 +437,7 @@ SolutionData IDAKLUSolverOpenMP<ExprSet>::solve(
         // Fill out the event information
         IDAGetRootInfo(ida_mem, rootsfound_.data());
         for (int i = 0; i < number_of_events; i++) {
-          events_triggered_[i] = (rootsfound_[i] != 0);
+          events_triggered_[i] = (rootsfound_[i] != 0) ? SUN_RCONST(1.0) : SUN_RCONST(0.0);
         }
       }
       break;
@@ -812,7 +809,9 @@ void IDAKLUSolverOpenMP<ExprSet>::ConsistentInitializationDAE(
   const bool increasing = (t_next > t_val);
   sunrealtype t_next_perturbed = perturb_time(t_next, increasing);
 
-  if (newton_solver_ && icopt == IDA_YA_YDP_INIT) {
+  if (alg_state_ && alg_state_->solver && icopt == IDA_YA_YDP_INIT) {
+    using Mode = AlgSolverState::Mode;
+    auto& as = *alg_state_;
     sunrealtype* y_val = N_VGetArrayPointer(yy);
     sunrealtype* yp_val = N_VGetArrayPointer(yyp);
 
@@ -823,21 +822,61 @@ void IDAKLUSolverOpenMP<ExprSet>::ConsistentInitializationDAE(
     std::memcpy(y_save_.data(), y_val, number_of_states * sizeof(sunrealtype));
     std::memcpy(yp_save_.data(), yp_val, number_of_states * sizeof(sunrealtype));
 
-    NewtonResult result = newton_solver_->solve(t_val, t_next, log_);
+    bool is_decoupled = (as.mode != Mode::COUPLED_FULL);
+    bool solve_ok = false;
 
-    if (newton_success(result)) {
-      if (newton_solver_->is_decoupled()) {
+    if (as.mode == Mode::COUPLED_FULL) {
+      sunrealtype hic = SUN_RCONST(0.001) * std::abs(t_next - t_val);
+      if (hic == SUN_RCONST(0.0)) hic = SUN_RCONST(1.0e-6);
+      const int max_nh = solver_opts.max_num_steps_ic;
+
+      std::memcpy(as.y0_save_ic.data(), y_val, number_of_states * sizeof(sunrealtype));
+      std::memcpy(as.yp0_save_ic.data(), yp_val, number_of_states * sizeof(sunrealtype));
+
+      SetupATimes();
+      for (int nh = 0; nh < max_nh; nh++) {
+        if (nh > 0) {
+          std::memcpy(y_val, as.y0_save_ic.data(), number_of_states * sizeof(sunrealtype));
+          std::memcpy(yp_val, as.yp0_save_ic.data(), number_of_states * sizeof(sunrealtype));
+        }
+        as.newton_cj = SUN_RCONST(1.0) / hic;
+        NonlinearResult result = as.solver->solve_single(t_val, y_val, nullptr);
+        if (nonlinear_success(result)) {
+          solve_ok = true;
+          break;
+        }
+        hic *= SUN_RCONST(0.1);
+      }
+      RestoreATimes();
+    } else {
+      if (as.mode == Mode::DECOUPLED_FULL) {
+        SetupATimes();
+      }
+
+      sunrealtype* solve_ptr;
+      if (as.mode == Mode::DECOUPLED_SUBBLOCK) {
+        solve_ptr = y_val + len_rhs_;
+      } else {
+        solve_ptr = y_val;
+      }
+
+      NonlinearResult result = as.solver->solve_single(t_val, solve_ptr, nullptr);
+      solve_ok = nonlinear_success(result);
+
+      if (as.mode == Mode::DECOUPLED_FULL) {
+        RestoreATimes();
+      }
+    }
+
+    if (solve_ok) {
+      if (is_decoupled) {
         ConsistentInitializationODE(t_val);
       }
       ReinitializeIntegrator(t_val);
-      // With sensitivities, still run IDACalcIC to correct initial sensitivity
-      // values. Newton's good starting point means IDACalcIC does zero Newton
-      // iterations on the state variables.
       if (!sensitivity) {
         return;
       }
     } else {
-      // Newton failed, revert to initial guess and run IDACalcIC
       std::memcpy(y_val, y_save_.data(), number_of_states * sizeof(sunrealtype));
       std::memcpy(yp_val, yp_save_.data(), number_of_states * sizeof(sunrealtype));
       ReinitializeIntegrator(t_val);
@@ -1065,6 +1104,489 @@ void IDAKLUSolverOpenMP<ExprSet>::SetStepHermiteSensitivities(
     sunrealtype* dest = &ypS[base + p * number_of_states];
     std::copy(ypS_val_[p], ypS_val_[p] + number_of_states, dest);
   }
+}
+
+// ────────────────────── Algebraic solver construction ──────────────────────
+
+template <class ExprSet>
+bool IDAKLUSolverOpenMP<ExprSet>::CheckMassMatrixAlignment(const sunrealtype* id_val) {
+  std::vector<sunrealtype> e_in(number_of_states, 0.0);
+  std::vector<sunrealtype> m_out(number_of_states, 0.0);
+
+  for (int j = 0; j < number_of_states; j++) {
+    e_in[j] = 1.0;
+    functions->mass_action->m_arg[0] = e_in.data();
+    functions->mass_action->m_res[0] = m_out.data();
+    (*functions->mass_action)();
+    e_in[j] = 0.0;
+
+    for (int i = 0; i < number_of_states; i++) {
+      if (is_algebraic(id_val[i]) && m_out[i] != 0.0) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+template <class ExprSet>
+void IDAKLUSolverOpenMP<ExprSet>::PrecomputeSubBlockSparsity() {
+  auto& as = *alg_state_;
+  const auto& rows = functions->alg_jac->get_row();
+  const auto& cols = functions->alg_jac->get_col();
+  int nnz_total = functions->alg_jac->nnz_out();
+
+  as.alg_colptrs.resize(len_alg_ + 1, 0);
+  as.alg_rowvals.clear();
+  as.alg_data_indices.clear();
+
+  for (int alg_col = 0; alg_col < len_alg_; alg_col++) {
+    as.alg_colptrs[alg_col] = static_cast<int64_t>(as.alg_rowvals.size());
+    int full_col = alg_col + len_rhs_;
+    for (int k = 0; k < nnz_total; k++) {
+      if (static_cast<int>(cols[k]) == full_col) {
+        as.alg_rowvals.push_back(rows[k]);
+        as.alg_data_indices.push_back(k);
+      }
+    }
+  }
+  as.alg_colptrs[len_alg_] = static_cast<int64_t>(as.alg_rowvals.size());
+  as.alg_nnz = static_cast<int>(as.alg_rowvals.size());
+}
+
+template <class ExprSet>
+void IDAKLUSolverOpenMP<ExprSet>::BuildAlgebraicSolver(const sunrealtype* id_val) {
+  DEBUG("IDAKLUSolverOpenMP::BuildAlgebraicSolver");
+
+  alg_state_ = std::make_unique<AlgSolverState>();
+  auto& as = *alg_state_;
+
+  // Cache algebraic/differential index sets
+  as.alg_idx.clear();
+  as.diff_idx.clear();
+  for (int i = 0; i < number_of_states; i++) {
+    if (is_algebraic(id_val[i]))
+      as.alg_idx.push_back(i);
+    else
+      as.diff_idx.push_back(i);
+  }
+
+  bool mass_aligned = CheckMassMatrixAlignment(id_val);
+
+  using Mode = AlgSolverState::Mode;
+  if (mass_aligned) {
+    if (solver_opts.newton_mode == "algebraic") {
+      as.mode = Mode::DECOUPLED_SUBBLOCK;
+    } else {
+      as.mode = Mode::DECOUPLED_FULL;
+    }
+  } else {
+    as.mode = Mode::COUPLED_FULL;
+  }
+
+  const sunrealtype* atol_data = N_VGetArrayPointer(avtol);
+  const sunrealtype* y_val = N_VGetArrayPointer(yy);
+
+  if (as.mode == Mode::DECOUPLED_SUBBLOCK) {
+    // ── SUBBLOCK: own LinearSolver with algebraic sub-block ──
+    if (functions->alg_res == nullptr || functions->alg_jac == nullptr) {
+      throw std::runtime_error(
+        "BuildAlgebraicSolver: algebraic mode requires alg_res and alg_jac functions");
+    }
+
+    PrecomputeSubBlockSparsity();
+
+    bool use_sparse_sub = (setup_opts.jacobian == "sparse" &&
+                           setup_opts.linear_solver == "SUNLinSol_KLU");
+
+    if (use_sparse_sub) {
+      py::dict ls_opts;
+      ls_opts["jacobian"] = "sparse";
+      ls_opts["linear_solver"] = "SUNLinSol_KLU";
+      as.ls = std::make_unique<LinearSolver>(
+        len_alg_, as.alg_nnz,
+        as.alg_colptrs.data(), as.alg_rowvals.data(),
+        ls_opts);
+    } else {
+      py::dict ls_opts;
+      ls_opts["jacobian"] = "dense";
+      ls_opts["linear_solver"] = "SUNLinSol_Dense";
+      as.ls = std::make_unique<LinearSolver>(
+        len_alg_, 0, nullptr, nullptr, ls_opts);
+    }
+
+    int jac_alg_nnz = functions->alg_jac->nnz_out();
+    as.full_jac_buf.resize(jac_alg_nnz > 0 ? jac_alg_nnz : len_alg_ * number_of_states);
+
+    // Build atol for algebraic sub-block
+    std::vector<sunrealtype> alg_atol(len_alg_);
+    for (int i = 0; i < len_alg_; i++) {
+      alg_atol[i] = atol_data[as.alg_idx[i]];
+    }
+
+    // Residual lambda: copy x into yy's algebraic part, then evaluate alg_res
+    auto* funcs = functions.get();
+    auto* yy_ptr = yy;
+    NonlinearSolver::ResidualFn res_fn =
+      [funcs, yy_ptr, this](sunrealtype t, const sunrealtype* x, sunrealtype* res_out) {
+        sunrealtype* y_val = NV_DATA(yy_ptr);
+        std::memcpy(y_val + len_rhs_, x, len_alg_ * sizeof(sunrealtype));
+        funcs->alg_res->m_arg[0] = &t;
+        funcs->alg_res->m_arg[1] = y_val;
+        funcs->alg_res->m_arg[2] = funcs->inputs.data();
+        funcs->alg_res->m_res[0] = res_out;
+        (*funcs->alg_res)();
+      };
+
+    // Jacobian lambda: sync x into yy, evaluate alg_jac, extract sub-block, factorize
+    NonlinearSolver::JacobianFn jac_fn =
+      [funcs, yy_ptr, use_sparse_sub, this](sunrealtype t, const sunrealtype* x) {
+        sunrealtype* y_val = NV_DATA(yy_ptr);
+        std::memcpy(y_val + len_rhs_, x, len_alg_ * sizeof(sunrealtype));
+        funcs->alg_jac->m_arg[0] = &t;
+        funcs->alg_jac->m_arg[1] = y_val;
+        funcs->alg_jac->m_arg[2] = funcs->inputs.data();
+        funcs->alg_jac->m_res[0] = this->alg_state_->full_jac_buf.data();
+        (*funcs->alg_jac)();
+
+        if (use_sparse_sub) {
+          std::vector<sunrealtype> sub_vals(this->alg_state_->alg_nnz);
+          for (int i = 0; i < this->alg_state_->alg_nnz; i++) {
+            sub_vals[i] = this->alg_state_->full_jac_buf[this->alg_state_->alg_data_indices[i]];
+          }
+          this->alg_state_->ls->factorize(sub_vals.data());
+        } else {
+          std::vector<sunrealtype> dense(len_alg_ * len_alg_);
+          for (int j = 0; j < len_alg_; j++) {
+            int full_col = j + len_rhs_;
+            for (int i = 0; i < len_alg_; i++) {
+              dense[j * len_alg_ + i] =
+                this->alg_state_->full_jac_buf[full_col * len_alg_ + i];
+            }
+          }
+          this->alg_state_->ls->factorize(dense.data());
+        }
+      };
+
+    as.solver = std::make_unique<NonlinearSolver>(
+      as.ls.get(),
+      std::move(res_fn),
+      std::move(jac_fn),
+      len_alg_,
+      alg_atol.data(),
+      rtol,
+      solver_opts.newton_step_tol,
+      solver_opts.max_num_iterations_ic,
+      solver_opts.max_linesearch_backtracks_ic,
+      solver_opts.nonlinear_convergence_coefficient_ic
+    );
+
+  } else if (as.mode == Mode::DECOUPLED_FULL) {
+    // ── DECOUPLED_FULL: borrow IDA's LS/J ──
+    as.ls = std::make_unique<LinearSolver>(number_of_states, sunctx, LS, J);
+
+    std::vector<sunrealtype> full_atol(number_of_states);
+    std::memcpy(full_atol.data(), atol_data, number_of_states * sizeof(sunrealtype));
+
+    auto* funcs = functions.get();
+    auto* yy_ptr = yy;
+    auto* id_ptr = id;
+
+    // Residual: copy x into yy, evaluate rhs_alg, zero diff rows
+    NonlinearSolver::ResidualFn res_fn =
+      [funcs, yy_ptr, this](sunrealtype t, const sunrealtype* x, sunrealtype* res_out) {
+        sunrealtype* y_val = NV_DATA(yy_ptr);
+        std::memcpy(y_val, x, number_of_states * sizeof(sunrealtype));
+        funcs->rhs_alg->m_arg[0] = &t;
+        funcs->rhs_alg->m_arg[1] = y_val;
+        funcs->rhs_alg->m_arg[2] = funcs->inputs.data();
+        funcs->rhs_alg->m_res[0] = res_out;
+        (*funcs->rhs_alg)();
+        for (int idx : this->alg_state_->diff_idx) res_out[idx] = SUN_RCONST(0.0);
+      };
+
+    // Jacobian: copy x into yy, evaluate jac_times_cjmass, zero diff rows/cols, factorize
+    NonlinearSolver::JacobianFn jac_fn =
+      [funcs, yy_ptr, id_ptr, this](sunrealtype t, const sunrealtype* x) {
+        sunrealtype* y_val = NV_DATA(yy_ptr);
+        std::memcpy(y_val, x, number_of_states * sizeof(sunrealtype));
+
+        if (setup_opts.using_iterative_solver) {
+          this->alg_state_->newton_t = t;
+          this->alg_state_->newton_cj = SUN_RCONST(1.0);
+          return;
+        }
+
+        sunrealtype cj = SUN_RCONST(1.0);
+        sunrealtype* jac_data;
+        if (setup_opts.using_sparse_matrix) {
+          jac_data = SUNSparseMatrix_Data(this->alg_state_->ls->J_ptr());
+        } else if (setup_opts.using_banded_matrix) {
+          jac_data = funcs->get_tmp_sparse_jacobian_data();
+        } else {
+          jac_data = SUNDenseMatrix_Data(this->alg_state_->ls->J_ptr());
+        }
+
+        funcs->jac_times_cjmass->m_arg[0] = &t;
+        funcs->jac_times_cjmass->m_arg[1] = NV_DATA(yy_ptr);
+        funcs->jac_times_cjmass->m_arg[2] = funcs->inputs.data();
+        funcs->jac_times_cjmass->m_arg[3] = &cj;
+        funcs->jac_times_cjmass->m_res[0] = jac_data;
+        (*funcs->jac_times_cjmass)();
+
+        if (setup_opts.using_banded_matrix) {
+          auto jac_colptrs_data = funcs->jac_times_cjmass_colptrs.data();
+          auto jac_rowvals_data = funcs->jac_times_cjmass_rowvals.data();
+          for (int col = 0; col < number_of_states; col++) {
+            sunrealtype* banded_col = SM_COLUMN_B(this->alg_state_->ls->J_ptr(), col);
+            for (auto di = jac_colptrs_data[col]; di < jac_colptrs_data[col+1]; di++) {
+              auto row = jac_rowvals_data[di];
+              SM_COLUMN_ELEMENT_B(banded_col, row, col) = jac_data[di];
+            }
+          }
+        }
+
+        // Zero diff rows/cols
+        const sunrealtype* id_data = NV_DATA(id_ptr);
+        if (setup_opts.using_sparse_matrix) {
+          sunindextype* colptrs = SUNSparseMatrix_IndexPointers(this->alg_state_->ls->J_ptr());
+          sunindextype* rowvals = SUNSparseMatrix_IndexValues(this->alg_state_->ls->J_ptr());
+          sunrealtype* data = SUNSparseMatrix_Data(this->alg_state_->ls->J_ptr());
+          for (int col = 0; col < number_of_states; col++) {
+            bool diff_col = is_differential(id_data[col]);
+            for (sunindextype k = colptrs[col]; k < colptrs[col + 1]; k++) {
+              int row = static_cast<int>(rowvals[k]);
+              bool diff_row = is_differential(id_data[row]);
+              if (diff_row || diff_col) {
+                data[k] = (row == col) ? SUN_RCONST(1.0) : SUN_RCONST(0.0);
+              }
+            }
+          }
+        } else if (setup_opts.using_banded_matrix) {
+          for (int col = 0; col < number_of_states; col++) {
+            bool diff_col = is_differential(id_data[col]);
+            sunrealtype* banded_col = SM_COLUMN_B(this->alg_state_->ls->J_ptr(), col);
+            for (int row = 0; row < number_of_states; row++) {
+              bool diff_row = is_differential(id_data[row]);
+              if (diff_row || diff_col) {
+                SM_COLUMN_ELEMENT_B(banded_col, row, col) =
+                  (row == col) ? SUN_RCONST(1.0) : SUN_RCONST(0.0);
+              }
+            }
+          }
+        } else {
+          sunrealtype* data = SUNDenseMatrix_Data(this->alg_state_->ls->J_ptr());
+          for (int col = 0; col < number_of_states; col++) {
+            bool diff_col = is_differential(id_data[col]);
+            for (int row = 0; row < number_of_states; row++) {
+              bool diff_row = is_differential(id_data[row]);
+              if (diff_row || diff_col) {
+                data[col * number_of_states + row] =
+                  (row == col) ? SUN_RCONST(1.0) : SUN_RCONST(0.0);
+              }
+            }
+          }
+        }
+
+        int flag = SUNLinSolSetup(this->alg_state_->ls->LS_ptr(), this->alg_state_->ls->J_ptr());
+        if (flag != 0) {
+          throw std::runtime_error("DECOUPLED_FULL: SUNLinSolSetup failed");
+        }
+      };
+
+    as.solver = std::make_unique<NonlinearSolver>(
+      as.ls.get(),
+      std::move(res_fn),
+      std::move(jac_fn),
+      number_of_states,
+      full_atol.data(),
+      rtol,
+      solver_opts.newton_step_tol,
+      solver_opts.max_num_iterations_ic,
+      solver_opts.max_linesearch_backtracks_ic,
+      solver_opts.nonlinear_convergence_coefficient_ic
+    );
+
+    // Allocate ATimes scratch buffers
+    if (setup_opts.using_iterative_solver) {
+      as.atimes_tmp.resize(number_of_states);
+      as.atimes_v_save.resize(number_of_states);
+    }
+
+  } else {
+    // ── COUPLED_FULL: borrow IDA's LS/J ──
+    as.ls = std::make_unique<LinearSolver>(number_of_states, sunctx, LS, J);
+
+    std::vector<sunrealtype> full_atol(number_of_states);
+    std::memcpy(full_atol.data(), atol_data, number_of_states * sizeof(sunrealtype));
+
+    auto* funcs = functions.get();
+    auto* yy_ptr = yy;
+    auto* yyp_ptr = yyp;
+
+    // Residual: copy x into yy, sync yyp, evaluate full residual
+    NonlinearSolver::ResidualFn res_fn =
+      [funcs, yy_ptr, yyp_ptr, this](sunrealtype t, const sunrealtype* x, sunrealtype* res_out) {
+        sunrealtype* y_val = NV_DATA(yy_ptr);
+        sunrealtype* yp_val = NV_DATA(yyp_ptr);
+        std::memcpy(y_val, x, number_of_states * sizeof(sunrealtype));
+        // Sync yyp differential components: yp[i] = yp0[i] + cj*(y[i] - y0[i])
+        for (int idx : this->alg_state_->diff_idx) {
+          yp_val[idx] = this->alg_state_->yp0_save_ic[idx] + this->alg_state_->newton_cj * (y_val[idx] - this->alg_state_->y0_save_ic[idx]);
+        }
+        N_Vector res_vec = this->alg_state_->ls->get_b_nvec();
+        NV_DATA_S(res_vec) = res_out;
+        residual_eval<ExprSet>(t, yy_ptr, yyp_ptr, res_vec, funcs);
+      };
+
+    // Jacobian: copy x into yy, evaluate full Jacobian with cj
+    NonlinearSolver::JacobianFn jac_fn =
+      [funcs, yy_ptr, this](sunrealtype t, const sunrealtype* x) {
+        sunrealtype* y_val = NV_DATA(yy_ptr);
+        std::memcpy(y_val, x, number_of_states * sizeof(sunrealtype));
+
+        if (setup_opts.using_iterative_solver) {
+          this->alg_state_->newton_t = t;
+          return;
+        }
+
+        sunrealtype* jac_data;
+        if (setup_opts.using_sparse_matrix) {
+          jac_data = SUNSparseMatrix_Data(this->alg_state_->ls->J_ptr());
+        } else if (setup_opts.using_banded_matrix) {
+          jac_data = funcs->get_tmp_sparse_jacobian_data();
+        } else {
+          jac_data = SUNDenseMatrix_Data(this->alg_state_->ls->J_ptr());
+        }
+
+        funcs->jac_times_cjmass->m_arg[0] = &t;
+        funcs->jac_times_cjmass->m_arg[1] = NV_DATA(yy_ptr);
+        funcs->jac_times_cjmass->m_arg[2] = funcs->inputs.data();
+        funcs->jac_times_cjmass->m_arg[3] = &this->alg_state_->newton_cj;
+        funcs->jac_times_cjmass->m_res[0] = jac_data;
+        (*funcs->jac_times_cjmass)();
+
+        if (setup_opts.using_banded_matrix) {
+          auto jac_colptrs_data = funcs->jac_times_cjmass_colptrs.data();
+          auto jac_rowvals_data = funcs->jac_times_cjmass_rowvals.data();
+          for (int col = 0; col < number_of_states; col++) {
+            sunrealtype* banded_col = SM_COLUMN_B(this->alg_state_->ls->J_ptr(), col);
+            for (auto di = jac_colptrs_data[col]; di < jac_colptrs_data[col+1]; di++) {
+              auto row = jac_rowvals_data[di];
+              SM_COLUMN_ELEMENT_B(banded_col, row, col) = jac_data[di];
+            }
+          }
+        }
+
+        int flag = SUNLinSolSetup(this->alg_state_->ls->LS_ptr(), this->alg_state_->ls->J_ptr());
+        if (flag != 0) {
+          throw std::runtime_error("COUPLED_FULL: SUNLinSolSetup failed");
+        }
+      };
+
+    as.solver = std::make_unique<NonlinearSolver>(
+      as.ls.get(),
+      std::move(res_fn),
+      std::move(jac_fn),
+      number_of_states,
+      full_atol.data(),
+      rtol,
+      solver_opts.newton_step_tol,
+      solver_opts.max_num_iterations_ic,
+      solver_opts.max_linesearch_backtracks_ic,
+      solver_opts.nonlinear_convergence_coefficient_ic
+    );
+
+    // Allocate coupled mode buffers
+    as.y0_save_ic.resize(number_of_states);
+    as.yp0_save_ic.resize(number_of_states);
+
+    if (setup_opts.using_iterative_solver) {
+      as.atimes_tmp.resize(number_of_states);
+    }
+  }
+
+  // Copy sparsity pattern to borrowed J for FULL modes
+  if (as.mode != Mode::DECOUPLED_SUBBLOCK) {
+    if (J != nullptr && setup_opts.using_sparse_matrix) {
+      sunindextype* colptrs = SUNSparseMatrix_IndexPointers(J);
+      sunindextype* rowvals = SUNSparseMatrix_IndexValues(J);
+      const auto& src_colptrs = functions->jac_times_cjmass_colptrs;
+      const auto& src_rowvals = functions->jac_times_cjmass_rowvals;
+      for (size_t i = 0; i < src_colptrs.size(); i++)
+        colptrs[i] = src_colptrs[i];
+      for (size_t i = 0; i < src_rowvals.size(); i++)
+        rowvals[i] = src_rowvals[i];
+    }
+  }
+}
+
+// ────────────────────── ATimes callbacks ──────────────────────
+
+template <class ExprSet>
+int IDAKLUSolverOpenMP<ExprSet>::ComputeJv(N_Vector v, N_Vector Jv) {
+  auto& as = *alg_state_;
+  functions->jac_action->m_arg[0] = &as.newton_t;
+  functions->jac_action->m_arg[1] = NV_DATA(yy);
+  functions->jac_action->m_arg[2] = functions->inputs.data();
+  functions->jac_action->m_arg[3] = NV_DATA(v);
+  functions->jac_action->m_res[0] = NV_DATA(Jv);
+  (*functions->jac_action)();
+
+  functions->mass_action->m_arg[0] = NV_DATA(v);
+  functions->mass_action->m_res[0] = as.atimes_tmp.data();
+  (*functions->mass_action)();
+
+  axpy(number_of_states, -as.newton_cj, as.atimes_tmp.data(), NV_DATA(Jv));
+  return 0;
+}
+
+template <class ExprSet>
+int IDAKLUSolverOpenMP<ExprSet>::newton_atimes_decoupled(void* data, N_Vector v, N_Vector z) {
+  auto* self = static_cast<IDAKLUSolverOpenMP<ExprSet>*>(data);
+  auto& as = *self->alg_state_;
+  sunrealtype* v_data = NV_DATA(v);
+  sunrealtype* z_data = NV_DATA(z);
+
+  for (int idx : as.diff_idx) {
+    as.atimes_v_save[idx] = v_data[idx];
+    v_data[idx] = SUN_RCONST(0.0);
+  }
+
+  self->ComputeJv(v, z);
+
+  for (int idx : as.diff_idx) {
+    v_data[idx] = as.atimes_v_save[idx];
+    z_data[idx] = as.atimes_v_save[idx];
+  }
+  return 0;
+}
+
+template <class ExprSet>
+int IDAKLUSolverOpenMP<ExprSet>::newton_atimes_full(void* data, N_Vector v, N_Vector z) {
+  auto* self = static_cast<IDAKLUSolverOpenMP<ExprSet>*>(data);
+  return self->ComputeJv(v, z);
+}
+
+template <class ExprSet>
+void IDAKLUSolverOpenMP<ExprSet>::SetupATimes() {
+  if (!setup_opts.using_iterative_solver) return;
+  using Mode = AlgSolverState::Mode;
+  if (alg_state_->mode == Mode::DECOUPLED_SUBBLOCK) return;
+
+  SUNATimesFn atimes_fn = (alg_state_->mode == Mode::DECOUPLED_FULL)
+    ? &IDAKLUSolverOpenMP<ExprSet>::newton_atimes_decoupled
+    : &IDAKLUSolverOpenMP<ExprSet>::newton_atimes_full;
+  SUNLinSolSetATimes(LS, this, atimes_fn);
+}
+
+template <class ExprSet>
+void IDAKLUSolverOpenMP<ExprSet>::RestoreATimes() {
+  if (!setup_opts.using_iterative_solver) return;
+  using Mode = AlgSolverState::Mode;
+  if (alg_state_->mode == Mode::DECOUPLED_SUBBLOCK) return;
+
+  SUNLinSolSetATimes(LS, ida_mem, idaLsATimes);
 }
 
 template <class ExprSet>
