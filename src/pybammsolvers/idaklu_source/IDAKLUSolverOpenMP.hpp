@@ -14,6 +14,13 @@ using std::vector;
 #include "SolverLog.hpp"
 #include "HermiteKnotReducer.hpp"
 #include "NonlinearSolver.hpp"
+#include <idas/idas_impl.h>
+#include <sunlinsol/sunlinsol_dense.h>
+#include <sunlinsol/sunlinsol_band.h>
+#include <sunlinsol/sunlinsol_klu.h>
+#include <sunmatrix/sunmatrix_sparse.h>
+#include <sunmatrix/sunmatrix_dense.h>
+#include <sunmatrix/sunmatrix_band.h>
 
 /**
  * @brief Abstract solver class based on OpenMP vectors
@@ -97,29 +104,46 @@ public:
   SolverLog log_;
   std::unique_ptr<HermiteKnotReducer> knot_reducer;  // Hermite knot reduction (nullptr if inactive)
 
-  // Algebraic IC solver state (heap-allocated to preserve class layout)
   struct AlgSolverState {
-    enum class Mode { NONE, DECOUPLED_SUBBLOCK, DECOUPLED_FULL, COUPLED_FULL };
-    Mode mode = Mode::NONE;
-    std::unique_ptr<LinearSolver> ls;
+    enum class Mode { SUBBLOCK, DECOUPLED_FULL, COUPLED_FULL };
+    Mode mode = Mode::DECOUPLED_FULL;
     std::unique_ptr<NonlinearSolver> solver;
     std::vector<int> alg_idx;
     std::vector<int> diff_idx;
-    int alg_nnz = 0;
-    std::vector<int64_t> alg_colptrs;
-    std::vector<int64_t> alg_rowvals;
-    std::vector<int> alg_data_indices;
-    std::vector<sunrealtype> full_jac_buf;
-    std::vector<sunrealtype> atimes_tmp;
-    std::vector<sunrealtype> atimes_v_save;
-    sunrealtype newton_t = 0;
+    bool is_coupled = false;
     sunrealtype newton_cj = 0;
     std::vector<sunrealtype> y0_save_ic;
     std::vector<sunrealtype> yp0_save_ic;
 
+    // N_Vectors for SUNLinSolSolve (full-system modes only)
+    N_Vector res_nvec = nullptr;
+    N_Vector delta_nvec = nullptr;
+
+    // Sub-block owned resources (SUBBLOCK mode only)
+    SUNContext sub_sunctx = nullptr;
+    SUNLinearSolver sub_LS = nullptr;
+    SUNMatrix sub_J = nullptr;
+    N_Vector sub_res_nvec = nullptr;
+    N_Vector sub_delta_nvec = nullptr;
+
+    // Pre-computed sub-block sparsity mapping (SUBBLOCK + sparse)
+    int sub_nnz = 0;
+    std::vector<sunindextype> sub_colptrs;
+    std::vector<sunindextype> sub_rowvals;
+    std::vector<int> sub_data_indices;
+
+    // Scratch buffer for full Jacobian evaluation
+    std::vector<sunrealtype> full_jac_buf;
+
     ~AlgSolverState() {
       solver.reset();
-      ls.reset();
+      if (res_nvec) N_VDestroy(res_nvec);
+      if (delta_nvec) N_VDestroy(delta_nvec);
+      if (sub_res_nvec) N_VDestroy(sub_res_nvec);
+      if (sub_delta_nvec) N_VDestroy(sub_delta_nvec);
+      if (sub_LS) SUNLinSolFree(sub_LS);
+      if (sub_J) SUNMatDestroy(sub_J);
+      if (sub_sunctx) SUNContext_Free(&sub_sunctx);
     }
   };
   std::unique_ptr<AlgSolverState> alg_state_;
@@ -264,20 +288,13 @@ public:
   void ConsistentInitializationODE(const sunrealtype& t_val);
 
   /**
-   * @brief Build the algebraic solver (LinearSolver + NonlinearSolver)
-   * based on the detected mode (SUBBLOCK, DECOUPLED_FULL, COUPLED_FULL).
+   * @brief Build the algebraic Newton solver for consistent initial conditions.
+   * Auto-detects decoupled vs coupled mode from the mass matrix.
    */
   void BuildAlgebraicSolver(const sunrealtype* id_val);
 
   bool CheckMassMatrixAlignment(const sunrealtype* id_val);
   void PrecomputeSubBlockSparsity();
-
-  // ATimes for iterative solvers in FULL modes
-  int ComputeJv(N_Vector v, N_Vector Jv);
-  static int newton_atimes_decoupled(void* data, N_Vector v, N_Vector z);
-  static int newton_atimes_full(void* data, N_Vector v, N_Vector z);
-  void SetupATimes();
-  void RestoreATimes();
 
   /**
    * @brief Extend the adaptive arrays by 1

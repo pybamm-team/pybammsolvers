@@ -3,6 +3,10 @@
 
 CasadiFunction::CasadiFunction(const BaseFunctionType &f) : Expression(), m_func(f)
 {
+  if (m_func.is_null()) {
+    return;
+  }
+
   DEBUG("CasadiFunction constructor: " << m_func.name());
 
   size_t sz_arg;
@@ -37,16 +41,19 @@ void CasadiFunction::operator()()
 }
 
 expr_int CasadiFunction::out_shape(int k) {
+  if (m_func.is_null()) return 0;
   DEBUG("CasadiFunctions out_shape(): " << m_func.name() << " " << m_func.nnz_out());
   return static_cast<expr_int>(m_func.nnz_out());
 }
 
 expr_int CasadiFunction::nnz() {
+  if (m_func.is_null()) return 0;
   DEBUG("CasadiFunction nnz(): " << m_func.name() << " " << static_cast<expr_int>(m_func.nnz_out()));
   return static_cast<expr_int>(m_func.nnz_out());
 }
 
 expr_int CasadiFunction::nnz_out() {
+  if (m_func.is_null()) return 0;
   DEBUG("CasadiFunction nnz_out(): " << m_func.name() << " " << static_cast<expr_int>(m_func.nnz_out()));
   return static_cast<expr_int>(m_func.nnz_out());
 }

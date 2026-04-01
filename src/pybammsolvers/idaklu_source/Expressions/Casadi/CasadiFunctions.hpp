@@ -84,10 +84,8 @@ public:
     mass_action_casadi(mass_action),
     sens_casadi(sens),
     events_casadi(events),
-    has_alg_res_(!alg_res_fn.is_null() && alg_res_fn.n_in() > 0),
-    has_alg_jac_(!alg_jac_fn.is_null() && alg_jac_fn.n_in() > 0),
-    alg_res_casadi_(has_alg_res_ ? alg_res_fn : BaseFunctionType()),
-    alg_jac_casadi_(has_alg_jac_ ? alg_jac_fn : BaseFunctionType()),
+    alg_res_casadi_(alg_res_fn),
+    alg_jac_casadi_(alg_jac_fn),
     ExpressionSet<CasadiFunction>(
       static_cast<Expression*>(&rhs_alg_casadi),
       static_cast<Expression*>(&jac_times_cjmass_casadi),
@@ -106,13 +104,8 @@ public:
       nullptr,
       nullptr)
   {
-    if (has_alg_res_) {
-      this->alg_res = static_cast<Expression*>(&alg_res_casadi_);
-    }
-    if (has_alg_jac_) {
-      this->alg_jac = static_cast<Expression*>(&alg_jac_casadi_);
-    }
-    // convert BaseFunctionType list to CasadiFunction list
+    this->alg_res = static_cast<Expression*>(&alg_res_casadi_);
+    this->alg_jac = static_cast<Expression*>(&alg_jac_casadi_);
     // NOTE: You must allocate ALL std::vector elements before taking references
     for (auto& var : var_fcns)
       var_fcns_casadi.push_back(CasadiFunction(*var));
@@ -153,8 +146,6 @@ public:
   CasadiFunction mass_action_casadi;
   CasadiFunction sens_casadi;
   CasadiFunction events_casadi;
-  bool has_alg_res_;
-  bool has_alg_jac_;
   CasadiFunction alg_res_casadi_;
   CasadiFunction alg_jac_casadi_;
 

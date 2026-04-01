@@ -60,7 +60,7 @@ struct SolverOptions {
   double hermite_reduction_factor;  // >= 1.0; total error budget is M * solver_tol (threshold = N*(M-1)^2)
   // Newton solver for algebraic initial conditions
   double newton_step_tol;
-  std::string newton_mode;  // "full" or "algebraic"
+  std::string newton_mode;  // "auto" or "full"
   explicit SolverOptions(py::dict &py_opts);
 };
 

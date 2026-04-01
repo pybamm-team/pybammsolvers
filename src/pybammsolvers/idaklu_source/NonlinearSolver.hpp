@@ -2,8 +2,7 @@
 #define PYBAMM_NONLINEAR_SOLVER_HPP
 
 #include "common.hpp"
-#include "LinearSolver.hpp"
-#include "Expressions/Casadi/CasadiFunctions.hpp"
+#include "SolverLog.hpp"
 #include <vector>
 #include <cmath>
 #include <limits>
@@ -11,7 +10,6 @@
 #include <stdexcept>
 #include <string>
 #include <functional>
-#include <memory>
 
 enum class NonlinearResult {
   CONVERGED_WRMS_AND_STEPTOL,
@@ -41,99 +39,61 @@ inline const char* nonlinear_result_reason(NonlinearResult r) {
 }
 
 /**
- * @brief Unified nonlinear solver: find x such that F(t, x, p) = 0.
+ * @brief Newton solver for consistent initial conditions.
  *
- * Single Newton iteration loop used by both:
- *  - Standalone mode (Python-facing): owns a LinearSolver + CasADi functions.
- *  - Borrowed mode (IDA integration): uses borrowed LinearSolver + callbacks.
+ * Operates on the full n_states system using IDA's existing LS/J.
+ * In decoupled mode, zeros differential components of the residual
+ * and Newton step to effectively solve only the algebraic block.
  *
  * Zero allocations in the hotpath.
  */
 class NonlinearSolver {
 public:
-  using ResidualFn = std::function<void(sunrealtype t, const sunrealtype* x, sunrealtype* res)>;
-  using JacobianFn = std::function<void(sunrealtype t, const sunrealtype* x)>;
+  using ResidualFn = std::function<void(sunrealtype t, const sunrealtype* y, sunrealtype* res)>;
+  using LinearSolveFn = std::function<int(sunrealtype t, const sunrealtype* y,
+                                          sunrealtype* res, sunrealtype* delta)>;
 
-  /**
-   * @brief Standalone constructor (owns LinearSolver + CasADi functions).
-   */
   NonlinearSolver(
-    const casadi::Function& residual_fn,
-    const casadi::Function& jacobian_fn,
-    int n_vars,
-    np_array atol_np,
-    double rtol,
-    double step_tol,
-    int inputs_length,
-    py::dict options
-  );
-
-  /**
-   * @brief Borrowed constructor (IDA integration mode).
-   * Does not own the LinearSolver or evaluate CasADi functions.
-   * The caller provides callbacks for residual/Jacobian evaluation and
-   * manages the LinearSolver lifetime.
-   */
-  NonlinearSolver(
-    LinearSolver* ls,
     ResidualFn eval_residual,
-    JacobianFn eval_jacobian,
+    LinearSolveFn solve_linear,
     int n_vars,
     const sunrealtype* atol_data,
     sunrealtype rtol,
     sunrealtype step_tol,
     int max_iter,
     int max_backtracks,
-    sunrealtype epsNewt
+    sunrealtype epsNewt,
+    const std::vector<int>& diff_idx,
+    bool is_coupled
   );
 
-  ~NonlinearSolver();
+  ~NonlinearSolver() = default;
 
   NonlinearSolver(const NonlinearSolver&) = delete;
   NonlinearSolver& operator=(const NonlinearSolver&) = delete;
 
   /**
-   * @brief Single solve: find x such that F(t, x, p) = 0.
-   * x is read as initial guess and overwritten with solution (IN-PLACE).
-   * Returns the result status.
+   * @brief Find y such that F(t, y) = 0.
+   * y is read as initial guess and overwritten with solution (in-place).
    */
-  NonlinearResult solve_single(sunrealtype t, sunrealtype* x, const sunrealtype* p);
+  NonlinearResult solve_single(sunrealtype t, sunrealtype* y);
 
-  /**
-   * @brief Batch solve over t_eval (Python-facing, loops in C++).
-   * x0 is the initial guess; reused as next guess after each solve.
-   * out: optional pre-allocated (n_vars, n_times) array for in-place output.
-   */
-  py::object solve(
-    np_array t_eval_np,
-    np_array x0_np,
-    np_array inputs_np,
-    py::object out = py::none()
-  );
-
-  const std::string& last_message() const { return last_message_; }
-  int last_num_iterations() const { return last_num_iterations_; }
+  void set_log(SolverLog* log) { log_ = log; }
 
 private:
-  // THE single Newton loop -- written ONCE, used by both standalone and IDA
   NonlinearResult RunNewtonLoop(sunrealtype t);
 
-  // Evaluate residual and return infinity norm
   sunrealtype EvalResidualAndNorm(sunrealtype t);
-
-  // Evaluate Jacobian, factorize, and solve J*delta = res.
-  // Returns 0 on success, 1 for setup fail, -1 for solve fail.
   int SetupAndSolveLinearSystem(sunrealtype t);
 
-  // WRMS norm: sqrt(mean((vals[i] * ewt_[i])^2))
   sunrealtype WrmsNorm(const sunrealtype* vals) const;
-
-  // Infinity norm: max(|vals[i]|)
   sunrealtype InfNorm(const sunrealtype* vals) const;
 
   void ComputeEwt();
   void SaveIterate();
   void RevertAndApply(sunrealtype alpha);
+
+  void ZeroDiffComponents(sunrealtype* v) const;
 
   int n_vars_;
   sunrealtype rtol_;
@@ -142,35 +102,23 @@ private:
   int max_backtracks_;
   sunrealtype epsNewt_;
 
-  // LinearSolver (owned or borrowed)
-  LinearSolver* ls_;
-  std::unique_ptr<LinearSolver> owned_ls_;
-
-  // Residual/Jacobian callbacks (set by both standalone and borrowed modes)
   ResidualFn eval_residual_;
-  JacobianFn eval_jacobian_;
+  LinearSolveFn solve_linear_;
 
-  // CasADi function wrappers (standalone only, null for borrowed mode)
-  std::unique_ptr<CasadiFunction> residual_casadi_;
-  std::unique_ptr<CasadiFunction> jacobian_casadi_;
+  std::vector<int> diff_idx_;
+  bool is_coupled_;
 
-  // Pre-allocated working vectors (set once, ZERO allocations in hotpath)
-  std::vector<sunrealtype> x_;         // current iterate
-  std::vector<sunrealtype> res_;       // residual F(t, x, p)
-  std::vector<sunrealtype> delta_;     // Newton step (J\F)
-  std::vector<sunrealtype> x_save_;    // saved iterate for line search
-  std::vector<sunrealtype> ewt_;       // error weight vector
-  std::vector<sunrealtype> atol_;      // per-variable absolute tolerance
-  std::vector<sunrealtype> inputs_;    // parameter vector p (standalone only)
-  std::vector<sunrealtype> jac_buf_;   // raw Jacobian values from evaluator
+  std::vector<sunrealtype> x_;
+  std::vector<sunrealtype> res_;
+  std::vector<sunrealtype> delta_;
+  std::vector<sunrealtype> x_save_;
+  std::vector<sunrealtype> ewt_;
+  std::vector<sunrealtype> atol_;
 
-  // Jacobian sparsity (standalone sparse mode)
-  bool use_sparse_;
-  int jac_nnz_;
+  SolverLog* log_ = nullptr;
 
-  // Diagnostics
   std::string last_message_;
-  int last_num_iterations_;
+  int last_num_iterations_ = 0;
 };
 
 #include "NonlinearSolver.inl"
