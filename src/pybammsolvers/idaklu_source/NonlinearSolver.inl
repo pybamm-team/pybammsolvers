@@ -149,6 +149,9 @@ inline NonlinearResult NonlinearSolver::RunNewtonLoop(sunrealtype t) {
     prev_res_norm = res_norm;
     SaveIterate();
 
+    // Armijo-style linesearch: halve step until sufficient decrease.
+    // The 0.5 factor is the standard Armijo parameter (c1 = 0.5) used
+    // in SUNDIALS IDA's own Newton iteration (see ida_ic.c).
     sunrealtype alpha = SUN_RCONST(1.0);
     for (int ls = 0; ls < max_backtracks_; ls++) {
       RevertAndApply(alpha);

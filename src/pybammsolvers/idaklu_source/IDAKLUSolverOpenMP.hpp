@@ -14,7 +14,7 @@ using std::vector;
 #include "SolverLog.hpp"
 #include "HermiteKnotReducer.hpp"
 #include "NonlinearSolver.hpp"
-#include <idas/idas_impl.h>
+#include "IDAInternals.hpp"
 #include <sunlinsol/sunlinsol_dense.h>
 #include <sunlinsol/sunlinsol_band.h>
 #include <sunlinsol/sunlinsol_klu.h>
@@ -104,6 +104,37 @@ public:
   SolverLog log_;
   std::unique_ptr<HermiteKnotReducer> knot_reducer;  // Hermite knot reduction (nullptr if inactive)
 
+  struct SubBlockResources {
+    SUNContext sunctx = nullptr;
+    SUNLinearSolver LS = nullptr;
+    SUNMatrix J = nullptr;
+    N_Vector res_nvec = nullptr;
+    N_Vector delta_nvec = nullptr;
+    int nnz = 0;
+    std::vector<sunindextype> colptrs;
+    std::vector<sunindextype> rowvals;
+    std::vector<int> data_indices;
+    std::vector<sunrealtype> full_jac_buf;
+
+    ~SubBlockResources() {
+      if (res_nvec) N_VDestroy(res_nvec);
+      if (delta_nvec) N_VDestroy(delta_nvec);
+      if (LS) SUNLinSolFree(LS);
+      if (J) SUNMatDestroy(J);
+      if (sunctx) SUNContext_Free(&sunctx);
+    }
+  };
+
+  struct FullSystemResources {
+    N_Vector res_nvec = nullptr;
+    N_Vector delta_nvec = nullptr;
+
+    ~FullSystemResources() {
+      if (res_nvec) N_VDestroy(res_nvec);
+      if (delta_nvec) N_VDestroy(delta_nvec);
+    }
+  };
+
   struct AlgSolverState {
     enum class Mode { SUBBLOCK, DECOUPLED_FULL, COUPLED_FULL };
     Mode mode = Mode::DECOUPLED_FULL;
@@ -111,40 +142,15 @@ public:
     std::vector<int> alg_idx;
     std::vector<int> diff_idx;
     bool is_coupled = false;
+
+    // Coupled-only state
     sunrealtype newton_cj = 0;
     std::vector<sunrealtype> y0_save_ic;
     std::vector<sunrealtype> yp0_save_ic;
 
-    // N_Vectors for SUNLinSolSolve (full-system modes only)
-    N_Vector res_nvec = nullptr;
-    N_Vector delta_nvec = nullptr;
-
-    // Sub-block owned resources (SUBBLOCK mode only)
-    SUNContext sub_sunctx = nullptr;
-    SUNLinearSolver sub_LS = nullptr;
-    SUNMatrix sub_J = nullptr;
-    N_Vector sub_res_nvec = nullptr;
-    N_Vector sub_delta_nvec = nullptr;
-
-    // Pre-computed sub-block sparsity mapping (SUBBLOCK + sparse)
-    int sub_nnz = 0;
-    std::vector<sunindextype> sub_colptrs;
-    std::vector<sunindextype> sub_rowvals;
-    std::vector<int> sub_data_indices;
-
-    // Scratch buffer for full Jacobian evaluation
-    std::vector<sunrealtype> full_jac_buf;
-
-    ~AlgSolverState() {
-      solver.reset();
-      if (res_nvec) N_VDestroy(res_nvec);
-      if (delta_nvec) N_VDestroy(delta_nvec);
-      if (sub_res_nvec) N_VDestroy(sub_res_nvec);
-      if (sub_delta_nvec) N_VDestroy(sub_delta_nvec);
-      if (sub_LS) SUNLinSolFree(sub_LS);
-      if (sub_J) SUNMatDestroy(sub_J);
-      if (sub_sunctx) SUNContext_Free(&sub_sunctx);
-    }
+    // Mode-specific resources (only one is allocated)
+    std::unique_ptr<SubBlockResources> sub;
+    std::unique_ptr<FullSystemResources> full;
   };
   std::unique_ptr<AlgSolverState> alg_state_;
 
@@ -153,7 +159,6 @@ public:
   std::vector<sunrealtype> y_save_;
   std::vector<sunrealtype> yp_save_;
   std::vector<sunrealtype> event_values_;
-  std::vector<sunrealtype> events_triggered_;
   std::vector<int> rootsfound_;
 
   // ── Solve-duration state (valid only during solve()) ──
@@ -283,6 +288,11 @@ public:
     const int& icopt);
 
   /**
+   * @brief Try the custom Newton IC solver; returns true on success.
+   */
+  bool TryNewtonIC(const sunrealtype& t_val, const sunrealtype& t_next);
+
+  /**
    * @brief Set a consistent initialization for ODEs
    */
   void ConsistentInitializationODE(const sunrealtype& t_val);
@@ -295,6 +305,16 @@ public:
 
   bool CheckMassMatrixAlignment(const sunrealtype* id_val);
   void PrecomputeSubBlockSparsity();
+
+  /**
+   * @brief Shared linear-solve helper for DECOUPLED_FULL and COUPLED_FULL modes.
+   * Wraps ida_lsetup/ida_lsolve via IDAInternals.
+   * @param update_yp If false, yp is left unchanged (decoupled). Caller handles yp (coupled).
+   */
+  int SolveViaIDALinearSolver(
+    N_Vector yy_ptr, N_Vector yyp_ptr,
+    const sunrealtype* y_in, sunrealtype* res, sunrealtype* delta,
+    sunrealtype cj, bool update_yp);
 
   /**
    * @brief Extend the adaptive arrays by 1
@@ -332,7 +352,7 @@ public:
    * @brief Retrieve derivatives yp from IDA at time t (dky=1).
    * @param t The time at which to retrieve the solution.
    */
-  void GetSolutionDerivates(sunrealtype t);
+  void GetSolutionDerivatives(sunrealtype t);
 
   /**
    * @brief Store the initial point (t0) after consistent initialization
