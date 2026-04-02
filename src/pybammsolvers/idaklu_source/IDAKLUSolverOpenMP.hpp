@@ -149,6 +149,10 @@ public:
     std::vector<sunrealtype> y0_save_ic;
     std::vector<sunrealtype> yp0_save_ic;
 
+    // Reusable backup buffers for NewtonIC (allocated once, reused per call)
+    std::vector<sunrealtype> y_backup;
+    std::vector<sunrealtype> yp_backup;
+
     // Mode-specific resources (only one is allocated)
     std::unique_ptr<SubBlockResources> sub;
     std::unique_ptr<FullSystemResources> full;
@@ -285,9 +289,9 @@ public:
     const int& icopt);
 
   /**
-   * @brief Try the custom Newton IC solver; returns true on success.
+   * @brief Use the custom Newton IC solver; returns true on success.
    */
-  bool TryNewtonIC(const sunrealtype& t_val, const sunrealtype& t_next);
+  bool NewtonIC(const sunrealtype& t_val);
 
   /**
    * @brief Set a consistent initialization for ODEs

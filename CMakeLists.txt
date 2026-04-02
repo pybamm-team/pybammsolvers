@@ -77,6 +77,7 @@ pybind11_add_module(idaklu
         src/pybammsolvers/idaklu_source/observe.hpp
         src/pybammsolvers/idaklu_source/Options.hpp
         src/pybammsolvers/idaklu_source/Options.cpp
+        src/pybammsolvers/idaklu_source/StandaloneNewtonSolver.hpp
         # IDAKLU expressions / function evaluation [abstract]
         src/pybammsolvers/idaklu_source/Expressions/Expressions.hpp
         src/pybammsolvers/idaklu_source/Expressions/Base/Expression.hpp

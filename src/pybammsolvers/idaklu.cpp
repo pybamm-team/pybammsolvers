@@ -16,6 +16,7 @@
 #include "idaklu_source/Expressions/Casadi/CasadiFunctions.hpp"
 #include "idaklu_source/sundials_error_handler.hpp"
 #include "idaklu_source/reduce.hpp"
+#include "idaklu_source/StandaloneNewtonSolver.hpp"
 
 
 casadi::Function generate_casadi_function(const std::string &data)
@@ -156,6 +157,18 @@ PYBIND11_MODULE(idaklu, m)
     py::arg("atols"), py::arg("t_evals"),
     py::arg("rtol"),
     py::arg("hermite_reduction_factor"));
+
+  py::class_<StandaloneNewtonSolver>(m, "StandaloneNewtonSolver")
+    .def(py::init<casadi::Function, casadi::Function,
+                  std::vector<sunrealtype>, sunrealtype, sunrealtype,
+                  int, int, sunrealtype, bool>(),
+         py::arg("residual"), py::arg("jacobian"),
+         py::arg("atol"), py::arg("rtol"), py::arg("step_tol"),
+         py::arg("max_iter"), py::arg("max_backtracks"),
+         py::arg("eps_newt"), py::arg("use_sparse"))
+    .def("solve", &StandaloneNewtonSolver::solve,
+         py::arg("t"), py::arg("y0"), py::arg("inputs"),
+         py::return_value_policy::move);
 
   py::class_<casadi::Function>(m, "Function");
 

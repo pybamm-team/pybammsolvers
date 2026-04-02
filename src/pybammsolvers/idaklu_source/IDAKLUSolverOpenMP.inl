@@ -786,10 +786,9 @@ void IDAKLUSolverOpenMP<ExprSet>::ConsistentInitialization(
 }
 
 template <class ExprSet>
-bool IDAKLUSolverOpenMP<ExprSet>::TryNewtonIC(
-  const sunrealtype& t_val,
-  const sunrealtype& t_next) {
-  DEBUG("IDAKLUSolver::TryNewtonIC");
+bool IDAKLUSolverOpenMP<ExprSet>::NewtonIC(
+  const sunrealtype& t_val) {
+  DEBUG("IDAKLUSolver::NewtonIC");
 
   auto& as = *alg_state_;
   sunrealtype* y_val = N_VGetArrayPointer(yy);
@@ -803,15 +802,12 @@ bool IDAKLUSolverOpenMP<ExprSet>::TryNewtonIC(
     ida.SetEpsNewt();
   }
 
-  std::vector<sunrealtype> y_save(y_val, y_val + number_of_states);
-  std::vector<sunrealtype> yp_save(yp_val, yp_val + number_of_states);
+  std::memcpy(as.y_backup.data(), y_val, number_of_states * sizeof(sunrealtype));
+  std::memcpy(as.yp_backup.data(), yp_val, number_of_states * sizeof(sunrealtype));
 
   bool solve_ok = false;
 
   if (as.is_coupled) {
-    // Ref: SUNDIALS IDA documentation, IDACalcIC step-size heuristic
-    sunrealtype hic = SUN_RCONST(0.001) * std::abs(t_next - t_val);
-    if (hic == SUN_RCONST(0.0)) hic = SUN_RCONST(1.0e-6);
     const int max_nh = solver_opts.max_num_steps_ic;
 
     std::memcpy(as.y0_save_ic.data(), y_val, number_of_states * sizeof(sunrealtype));
@@ -822,14 +818,12 @@ bool IDAKLUSolverOpenMP<ExprSet>::TryNewtonIC(
         std::memcpy(y_val, as.y0_save_ic.data(), number_of_states * sizeof(sunrealtype));
         std::memcpy(yp_val, as.yp0_save_ic.data(), number_of_states * sizeof(sunrealtype));
       }
-      as.newton_cj = SUN_RCONST(1.0) / hic;
+      as.newton_cj = SUN_RCONST(1.0);
       NonlinearResult result = as.solver->solve_single(t_val, y_val);
       if (nonlinear_success(result)) {
         solve_ok = true;
         break;
       }
-      // Scale hic down by 0.1 per attempt (matches IDA's retry strategy)
-      hic *= SUN_RCONST(0.1);
     }
   } else {
     sunrealtype* solve_ptr = (as.mode == Mode::SUBBLOCK)
@@ -846,8 +840,8 @@ bool IDAKLUSolverOpenMP<ExprSet>::TryNewtonIC(
     return true;
   }
 
-  std::memcpy(y_val, y_save.data(), number_of_states * sizeof(sunrealtype));
-  std::memcpy(yp_val, yp_save.data(), number_of_states * sizeof(sunrealtype));
+  std::memcpy(y_val, as.y_backup.data(), number_of_states * sizeof(sunrealtype));
+  std::memcpy(yp_val, as.yp_backup.data(), number_of_states * sizeof(sunrealtype));
   ReinitializeIntegrator(t_val);
   return false;
 }
@@ -862,8 +856,12 @@ void IDAKLUSolverOpenMP<ExprSet>::ConsistentInitializationDAE(
   const bool increasing = (t_next > t_val);
   sunrealtype t_next_perturbed = perturb_time(t_next, increasing);
 
+  // If the model is a standard-form DAE, we can use the Newton solver
+  // to solve for the consistent initialization
   if (alg_state_ && alg_state_->solver && icopt == IDA_YA_YDP_INIT) {
-    if (TryNewtonIC(t_val, t_next) && !sensitivity) {
+    const bool newton_success = NewtonIC(t_val);
+    // Sensitivity requires IDACalcIC to compute its initial conditions
+    if (newton_success && !sensitivity) {
       return;
     }
   }

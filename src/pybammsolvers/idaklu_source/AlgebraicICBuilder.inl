@@ -297,12 +297,12 @@ void IDAKLUSolverOpenMP<ExprSet>::BuildAlgebraicSolver(const sunrealtype* id_val
 
   using Mode = AlgSolverState::Mode;
   bool has_alg_fns = (funcs->alg_res->nnz_out() > 0 && funcs->alg_jac->nnz_out() > 0);
-  if (!as.is_coupled && has_alg_fns) {
-    as.mode = Mode::SUBBLOCK;
-  } else if (!as.is_coupled) {
-    as.mode = Mode::DECOUPLED_FULL;
-  } else {
+  if (as.is_coupled) {
     as.mode = Mode::COUPLED_FULL;
+  } else if (has_alg_fns) {
+    as.mode = Mode::SUBBLOCK;
+  } else {
+    as.mode = Mode::DECOUPLED_FULL;
   }
 
   int n_solve_vars;
@@ -397,6 +397,9 @@ void IDAKLUSolverOpenMP<ExprSet>::BuildAlgebraicSolver(const sunrealtype* id_val
     as.is_coupled
   );
   as.solver->set_log(&log_);
+
+  as.y_backup.resize(number_of_states);
+  as.yp_backup.resize(number_of_states);
 
   if (as.is_coupled) {
     as.y0_save_ic.resize(number_of_states);
