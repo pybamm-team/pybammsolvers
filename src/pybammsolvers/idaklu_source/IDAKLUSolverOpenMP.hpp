@@ -136,20 +136,14 @@ public:
   };
 
   struct AlgSolverState {
-    enum class Mode { SUBBLOCK, DECOUPLED_FULL, COUPLED_FULL };
-    Mode mode = Mode::DECOUPLED_FULL;
+    enum class Mode { SUBBLOCK, FULL };
+    Mode mode = Mode::FULL;
     std::unique_ptr<NonlinearSystem> system;
     std::unique_ptr<NonlinearSolver> solver;
     std::vector<int> alg_idx;
     std::vector<int> diff_idx;
-    bool is_coupled = false;
 
-    // Coupled-only state
-    sunrealtype newton_cj = 0;
-    std::vector<sunrealtype> y0_save_ic;
-    std::vector<sunrealtype> yp0_save_ic;
-
-    // Reusable backup buffers for NewtonIC (allocated once, reused per call)
+    // Reusable backup buffers for NonlinearSolverInitialConditions (allocated once, reused per call)
     std::vector<sunrealtype> y_backup;
     std::vector<sunrealtype> yp_backup;
 
@@ -291,7 +285,7 @@ public:
   /**
    * @brief Use the custom Newton IC solver; returns true on success.
    */
-  bool NewtonIC(const sunrealtype& t_val);
+  bool NonlinearSolverInitialConditions(const sunrealtype& t_val);
 
   /**
    * @brief Set a consistent initialization for ODEs
@@ -299,8 +293,14 @@ public:
   void ConsistentInitializationODE(const sunrealtype& t_val);
 
   /**
+   * @brief Recover yp after a successful Newton IC solve.
+   * Calls ConsistentInitializationODE then zeros algebraic yp components.
+   */
+  void RecoverYp(const sunrealtype& t_val);
+
+  /**
    * @brief Build the algebraic Newton solver for consistent initial conditions.
-   * Auto-detects decoupled vs coupled mode from the mass matrix.
+   * Only built when mass matrix has zeros in algebraic rows (standard-form).
    */
   void BuildAlgebraicSolver(const sunrealtype* id_val);
 
@@ -308,9 +308,8 @@ public:
   void PrecomputeSubBlockSparsity();
 
   /**
-   * @brief Shared linear-solve helper for DECOUPLED_FULL and COUPLED_FULL modes.
+   * @brief Linear-solve helper for FULL mode.
    * Copies y_in into yy, then wraps ida_lsetup/ida_lsolve via IDAInternals.
-   * Callers that need yp updated must do so before calling.
    */
   int SolveViaIDALinearSolver(
     N_Vector yy_ptr, N_Vector yyp_ptr,

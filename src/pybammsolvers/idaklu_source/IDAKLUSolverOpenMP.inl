@@ -786,16 +786,15 @@ void IDAKLUSolverOpenMP<ExprSet>::ConsistentInitialization(
 }
 
 template <class ExprSet>
-bool IDAKLUSolverOpenMP<ExprSet>::NewtonIC(
+bool IDAKLUSolverOpenMP<ExprSet>::NonlinearSolverInitialConditions(
   const sunrealtype& t_val) {
-  DEBUG("IDAKLUSolver::NewtonIC");
+  DEBUG("IDAKLUSolver::NonlinearSolverInitialConditions");
 
   auto& as = *alg_state_;
   sunrealtype* y_val = N_VGetArrayPointer(yy);
   sunrealtype* yp_val = N_VGetArrayPointer(yyp);
 
-  using Mode = AlgSolverState::Mode;
-  if (as.mode != Mode::SUBBLOCK) {
+  if (as.mode != AlgSolverState::Mode::SUBBLOCK) {
     IDAInternals ida(ida_mem);
     int ier = ida.EnsureSetup();
     if (ier != IDA_SUCCESS) return false;
@@ -805,45 +804,20 @@ bool IDAKLUSolverOpenMP<ExprSet>::NewtonIC(
   std::memcpy(as.y_backup.data(), y_val, number_of_states * sizeof(sunrealtype));
   std::memcpy(as.yp_backup.data(), yp_val, number_of_states * sizeof(sunrealtype));
 
-  bool solve_ok = false;
+  sunrealtype* solve_ptr = (as.mode == AlgSolverState::Mode::SUBBLOCK)
+    ? y_val + len_rhs_ : y_val;
+  NonlinearResult result = as.solver->solve_single(t_val, solve_ptr);
+  const bool success = nonlinear_success(result);
 
-  if (as.is_coupled) {
-    const int max_nh = solver_opts.max_num_steps_ic;
-
-    std::memcpy(as.y0_save_ic.data(), y_val, number_of_states * sizeof(sunrealtype));
-    std::memcpy(as.yp0_save_ic.data(), yp_val, number_of_states * sizeof(sunrealtype));
-
-    for (int nh = 0; nh < max_nh; nh++) {
-      if (nh > 0) {
-        std::memcpy(y_val, as.y0_save_ic.data(), number_of_states * sizeof(sunrealtype));
-        std::memcpy(yp_val, as.yp0_save_ic.data(), number_of_states * sizeof(sunrealtype));
-      }
-      as.newton_cj = SUN_RCONST(1.0);
-      NonlinearResult result = as.solver->solve_single(t_val, y_val);
-      if (nonlinear_success(result)) {
-        solve_ok = true;
-        break;
-      }
-    }
+  if (success) {
+    RecoverYp(t_val);
   } else {
-    sunrealtype* solve_ptr = (as.mode == Mode::SUBBLOCK)
-      ? y_val + len_rhs_ : y_val;
-    NonlinearResult result = as.solver->solve_single(t_val, solve_ptr);
-    solve_ok = nonlinear_success(result);
+    std::memcpy(y_val, as.y_backup.data(), number_of_states * sizeof(sunrealtype));
+    std::memcpy(yp_val, as.yp_backup.data(), number_of_states * sizeof(sunrealtype));
   }
 
-  if (solve_ok) {
-    if (!as.is_coupled) {
-      ConsistentInitializationODE(t_val);
-    }
-    ReinitializeIntegrator(t_val);
-    return true;
-  }
-
-  std::memcpy(y_val, as.y_backup.data(), number_of_states * sizeof(sunrealtype));
-  std::memcpy(yp_val, as.yp_backup.data(), number_of_states * sizeof(sunrealtype));
   ReinitializeIntegrator(t_val);
-  return false;
+  return success;
 }
 
 template <class ExprSet>
@@ -859,7 +833,7 @@ void IDAKLUSolverOpenMP<ExprSet>::ConsistentInitializationDAE(
   // If the model is a standard-form DAE, we can use the Newton solver
   // to solve for the consistent initialization
   if (alg_state_ && alg_state_->solver && icopt == IDA_YA_YDP_INIT) {
-    const bool newton_success = NewtonIC(t_val);
+    const bool newton_success = NonlinearSolverInitialConditions(t_val);
     // Sensitivity requires IDACalcIC to compute its initial conditions
     if (newton_success && !sensitivity) {
       return;
@@ -882,6 +856,13 @@ void IDAKLUSolverOpenMP<ExprSet>::ConsistentInitializationODE(
   std::memset(y_cache_val, 0, number_of_states * sizeof(sunrealtype));
   // Overwrite yp
   residual_eval<ExprSet>(t_val, yy, y_cache, yyp, functions.get());
+}
+
+template <class ExprSet>
+void IDAKLUSolverOpenMP<ExprSet>::RecoverYp(const sunrealtype& t_val) {
+  ConsistentInitializationODE(t_val);
+  sunrealtype* yp_val = N_VGetArrayPointer(yyp);
+  for (int i : alg_state_->alg_idx) yp_val[i] = SUN_RCONST(0.0);
 }
 
 // Step storage methods (use member state: y_val_, yp_val_, yS_val_, ypS_val_, i_save_)

@@ -223,8 +223,7 @@ public:
     bool use_sparse)
     : system_(residual_fn, jacobian_fn, use_sparse),
       solver_(system_, system_.n_vars(), atol.data(), rtol, step_tol,
-              max_iter, max_backtracks, epsNewt,
-              /*diff_idx=*/{}, /*is_coupled=*/false),
+              max_iter, max_backtracks, epsNewt),
       n_vars_(system_.n_vars()),
       y_work_(n_vars_)
   {}

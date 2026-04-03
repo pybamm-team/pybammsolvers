@@ -11,8 +11,7 @@ inline NonlinearSolver::NonlinearSolver(
   int max_iter,
   int max_backtracks,
   sunrealtype epsNewt,
-  const std::vector<int>& diff_idx,
-  bool is_coupled
+  const std::vector<int>& diff_idx
 ) : n_vars_(n_vars),
     rtol_(rtol),
     step_tol_(step_tol),
@@ -21,7 +20,6 @@ inline NonlinearSolver::NonlinearSolver(
     epsNewt_(epsNewt),
     system_(system),
     diff_idx_(diff_idx),
-    is_coupled_(is_coupled),
     last_num_iterations_(0)
 {
   atol_.resize(n_vars_);
@@ -78,7 +76,7 @@ inline void NonlinearSolver::RevertAndApply(sunrealtype alpha) {
 
 inline sunrealtype NonlinearSolver::EvalResidualAndNorm(sunrealtype t) {
   system_.eval_residual(t, x_.data(), res_.data());
-  if (!is_coupled_) ZeroDiffComponents(res_.data());
+  if (!diff_idx_.empty()) ZeroDiffComponents(res_.data());
   return InfNorm(res_.data());
 }
 
@@ -93,7 +91,7 @@ inline int NonlinearSolver::SetupAndSolveLinearSystem(sunrealtype t) {
   }
   if (flag != 0) return (flag > 0) ? 1 : -1;
 
-  if (!is_coupled_) ZeroDiffComponents(delta_.data());
+  if (!diff_idx_.empty()) ZeroDiffComponents(delta_.data());
   return 0;
 }
 

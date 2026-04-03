@@ -109,9 +109,9 @@ private:
 };
 
 template <class ExprSet>
-class DecoupledFullSystem : public NonlinearSystem {
+class FullSystem : public NonlinearSystem {
 public:
-  DecoupledFullSystem(
+  FullSystem(
     ExprSet* funcs, N_Vector yy, N_Vector yyp,
     IDAKLUSolverOpenMP<ExprSet>* solver)
     : funcs_(funcs), yy_(yy), yyp_(yyp), solver_(solver) {}
@@ -133,63 +133,6 @@ public:
   }
 
 private:
-  ExprSet* funcs_;
-  N_Vector yy_;
-  N_Vector yyp_;
-  IDAKLUSolverOpenMP<ExprSet>* solver_;
-};
-
-template <class ExprSet>
-class CoupledFullSystem : public NonlinearSystem {
-public:
-  CoupledFullSystem(
-    ExprSet* funcs, N_Vector yy, N_Vector yyp,
-    IDAKLUSolverOpenMP<ExprSet>* solver)
-    : funcs_(funcs), yy_(yy), yyp_(yyp), solver_(solver) {}
-
-  void eval_residual(sunrealtype t, const sunrealtype* y, sunrealtype* res_out) override {
-    int n = solver_->number_of_states;
-    sunrealtype* yy_data = NV_DATA(yy_);
-    sunrealtype* yp_data = NV_DATA(yyp_);
-    std::memcpy(yy_data, y, n * sizeof(sunrealtype));
-    update_yp(yy_data, yp_data);
-
-    funcs_->rhs_alg->m_arg[0] = &t;
-    funcs_->rhs_alg->m_arg[1] = yy_data;
-    funcs_->rhs_alg->m_arg[2] = funcs_->inputs.data();
-    funcs_->rhs_alg->m_res[0] = res_out;
-    (*funcs_->rhs_alg)();
-
-    sunrealtype* tmp = funcs_->get_tmp_state_vector();
-    funcs_->mass_action->m_arg[0] = yp_data;
-    funcs_->mass_action->m_res[0] = tmp;
-    (*funcs_->mass_action)();
-    axpy(n, -1., tmp, res_out);
-  }
-
-  int solve_linear(sunrealtype t, const sunrealtype* y,
-                   sunrealtype* res, sunrealtype* delta) override {
-    int n = solver_->number_of_states;
-    sunrealtype* yy_data = NV_DATA(yy_);
-    sunrealtype* yp_data = NV_DATA(yyp_);
-    std::memcpy(yy_data, y, n * sizeof(sunrealtype));
-    update_yp(yy_data, yp_data);
-
-    auto& as = *solver_->alg_state_;
-    return solver_->SolveViaIDALinearSolver(
-      yy_, yyp_, y, res, delta, as.newton_cj);
-  }
-
-private:
-  // yp[i] = yp0[i] + cj * (y[i] - y0[i]) for differential variables
-  void update_yp(const sunrealtype* yy_data, sunrealtype* yp_data) {
-    auto& as = *solver_->alg_state_;
-    for (int idx : as.diff_idx) {
-      yp_data[idx] = as.yp0_save_ic[idx]
-        + as.newton_cj * (yy_data[idx] - as.y0_save_ic[idx]);
-    }
-  }
-
   ExprSet* funcs_;
   N_Vector yy_;
   N_Vector yyp_;
@@ -277,6 +220,10 @@ template <class ExprSet>
 void IDAKLUSolverOpenMP<ExprSet>::BuildAlgebraicSolver(const sunrealtype* id_val) {
   DEBUG("IDAKLUSolverOpenMP::BuildAlgebraicSolver");
 
+  // Newton IC only works when M has all zeros in the algebraic rows.
+  // If not, skip entirely and let IDACalcIC handle it.
+  if (!CheckMassMatrixAlignment(id_val)) return;
+
   alg_state_ = std::make_unique<AlgSolverState>();
   auto& as = *alg_state_;
 
@@ -287,9 +234,6 @@ void IDAKLUSolverOpenMP<ExprSet>::BuildAlgebraicSolver(const sunrealtype* id_val
       as.diff_idx.push_back(i);
   }
 
-  bool mass_aligned = CheckMassMatrixAlignment(id_val);
-  as.is_coupled = !mass_aligned;
-
   auto* funcs = functions.get();
   auto* yy_ptr = yy;
   auto* yyp_ptr = yyp;
@@ -297,24 +241,13 @@ void IDAKLUSolverOpenMP<ExprSet>::BuildAlgebraicSolver(const sunrealtype* id_val
 
   using Mode = AlgSolverState::Mode;
   bool has_alg_fns = (funcs->alg_res->nnz_out() > 0 && funcs->alg_jac->nnz_out() > 0);
-  if (as.is_coupled) {
-    as.mode = Mode::COUPLED_FULL;
-  } else if (has_alg_fns) {
-    as.mode = Mode::SUBBLOCK;
-  } else {
-    as.mode = Mode::DECOUPLED_FULL;
-  }
+  as.mode = has_alg_fns ? Mode::SUBBLOCK : Mode::FULL;
 
   int n_solve_vars;
   std::vector<int> solve_diff_idx;
 
   if (as.mode == Mode::SUBBLOCK) {
     // ── SUBBLOCK: solve only algebraic variables with own LS/J ──
-    if (funcs->alg_res->nnz_out() == 0 || funcs->alg_jac->nnz_out() == 0) {
-      throw std::runtime_error(
-        "BuildAlgebraicSolver: SUBBLOCK mode requires alg_res and alg_jac functions");
-    }
-
     n_solve_vars = len_alg_;
 
     bool use_sparse = (setup_opts.jacobian == "sparse" &&
@@ -348,21 +281,8 @@ void IDAKLUSolverOpenMP<ExprSet>::BuildAlgebraicSolver(const sunrealtype* id_val
     as.system = std::make_unique<SubBlockSystem<ExprSet>>(
       funcs, yy_ptr, this, use_sparse);
 
-  } else if (as.mode == Mode::DECOUPLED_FULL) {
-    // ── DECOUPLED_FULL: full-system via IDA's linear solve interface ──
-    n_solve_vars = number_of_states;
-    solve_diff_idx = as.diff_idx;
-
-    as.full = std::make_unique<FullSystemResources>();
-    auto& fs = *as.full;
-    fs.res_nvec = N_VNew_Serial(number_of_states, sunctx);
-    fs.delta_nvec = N_VNew_Serial(number_of_states, sunctx);
-
-    as.system = std::make_unique<DecoupledFullSystem<ExprSet>>(
-      funcs, yy_ptr, yyp_ptr, this);
-
   } else {
-    // ── COUPLED_FULL: solve full system, all variables participate ──
+    // ── FULL: full-system via IDA's linear solve interface ──
     n_solve_vars = number_of_states;
     solve_diff_idx = as.diff_idx;
 
@@ -371,7 +291,7 @@ void IDAKLUSolverOpenMP<ExprSet>::BuildAlgebraicSolver(const sunrealtype* id_val
     fs.res_nvec = N_VNew_Serial(number_of_states, sunctx);
     fs.delta_nvec = N_VNew_Serial(number_of_states, sunctx);
 
-    as.system = std::make_unique<CoupledFullSystem<ExprSet>>(
+    as.system = std::make_unique<FullSystem<ExprSet>>(
       funcs, yy_ptr, yyp_ptr, this);
   }
 
@@ -393,16 +313,10 @@ void IDAKLUSolverOpenMP<ExprSet>::BuildAlgebraicSolver(const sunrealtype* id_val
     solver_opts.max_num_iterations_ic,
     solver_opts.max_linesearch_backtracks_ic,
     solver_opts.nonlinear_convergence_coefficient_ic,
-    solve_diff_idx,
-    as.is_coupled
+    solve_diff_idx
   );
   as.solver->set_log(&log_);
 
   as.y_backup.resize(number_of_states);
   as.yp_backup.resize(number_of_states);
-
-  if (as.is_coupled) {
-    as.y0_save_ic.resize(number_of_states);
-    as.yp0_save_ic.resize(number_of_states);
-  }
 }

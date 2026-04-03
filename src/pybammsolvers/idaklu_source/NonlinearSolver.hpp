@@ -40,7 +40,7 @@ inline const char* nonlinear_result_reason(NonlinearResult r) {
  * @brief Abstract interface for the nonlinear system solved by NonlinearSolver.
  *
  * Concrete implementations provide the residual evaluation and linear solve
- * for a specific algebraic IC mode (sub-block, decoupled-full, coupled-full).
+ * for a specific algebraic IC mode (sub-block or full-system).
  */
 class NonlinearSystem {
 public:
@@ -54,8 +54,8 @@ public:
  * @brief Newton solver for consistent initial conditions.
  *
  * Operates on the full n_states system using IDA's existing LS/J.
- * In decoupled mode, zeros differential components of the residual
- * and Newton step to effectively solve only the algebraic block.
+ * When diff_idx is non-empty, zeros differential components of the
+ * residual and Newton step to effectively solve only the algebraic block.
  *
  * Zero allocations in the hotpath.
  */
@@ -70,8 +70,7 @@ public:
     int max_iter,
     int max_backtracks,
     sunrealtype epsNewt,
-    const std::vector<int>& diff_idx,
-    bool is_coupled
+    const std::vector<int>& diff_idx = {}
   );
 
   ~NonlinearSolver() = default;
@@ -112,7 +111,6 @@ private:
   NonlinearSystem& system_;
 
   std::vector<int> diff_idx_;
-  bool is_coupled_;
 
   std::vector<sunrealtype> x_;
   std::vector<sunrealtype> res_;
