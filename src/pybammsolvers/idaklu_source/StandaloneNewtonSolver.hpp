@@ -250,6 +250,41 @@ public:
     return {nonlinear_success(result), std::move(out)};
   }
 
+  /**
+   * @brief Batch solve over multiple time points in a single C++ call.
+   *
+   * Each solve reuses the previous solution as the initial guess.
+   * Stops early on the first failure.
+   *
+   * @return (all_success, y_matrix) where y_matrix has shape (n_vars, n_times).
+   */
+  std::pair<bool, py::array_t<sunrealtype, py::array::f_style>> solve_batch(
+    const np_array& t_eval_np,
+    const np_array& y0_alg_np,
+    const np_array& inputs_np)
+  {
+    auto t_eval = t_eval_np.unchecked<1>();
+    auto y0 = y0_alg_np.unchecked<1>();
+    auto inp = inputs_np.unchecked<1>();
+
+    int n_times = static_cast<int>(t_eval.size());
+    system_.set_inputs(inp.data(0), static_cast<int>(inp.size()));
+    std::memcpy(y_work_.data(), y0.data(0), n_vars_ * sizeof(sunrealtype));
+
+    py::array_t<sunrealtype, py::array::f_style> out({n_vars_, n_times});
+    sunrealtype* out_data = out.mutable_data();
+
+    for (int i = 0; i < n_times; i++) {
+      NonlinearResult result = solver_.solve_single(t_eval(i), y_work_.data());
+      if (!nonlinear_success(result))
+        return {false, std::move(out)};
+      std::memcpy(out_data + i * n_vars_, y_work_.data(),
+                  n_vars_ * sizeof(sunrealtype));
+    }
+
+    return {true, std::move(out)};
+  }
+
 private:
   StandaloneAlgebraicSystem system_;
   NonlinearSolver solver_;

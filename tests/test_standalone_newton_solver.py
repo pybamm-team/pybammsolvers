@@ -262,3 +262,96 @@ class TestStandaloneNewtonSolver:
         err_l = abs(y_l[0] - 2.0)
         err_t = abs(y_t[0] - 2.0)
         assert err_t <= err_l
+
+    # ───────── solve_batch tests ─────────
+
+    def test_solve_batch_basic(self, scalar_solver):
+        """Batch solve a time-independent scalar system across multiple t."""
+        t_eval = np.array([0.0, 0.5, 1.0], dtype=np.float64)
+        y0 = np.array([1.5], dtype=np.float64)
+        empty_p = np.array([], dtype=np.float64)
+
+        ok, y_mat = scalar_solver.solve_batch(t_eval, y0, empty_p)
+        assert ok
+        assert y_mat.shape == (1, 3)
+        np.testing.assert_allclose(y_mat, [[2.0, 2.0, 2.0]], atol=1e-10)
+
+    def test_solve_batch_time_dependent(self):
+        """F(t, y) = y - 3*t.  Solution: y(t) = 3*t."""
+        t = casadi.MX.sym("t")
+        y = casadi.MX.sym("y")
+        p = casadi.MX.sym("p", 0)
+        res = y - 3 * t
+        jac_expr = casadi.jacobian(res, y)
+        res_fn = casadi.Function("res", [t, y, p], [res])
+        jac_fn = casadi.Function("newton_jac", [t, y, p], [jac_expr])
+        solver = _build_solver(res_fn, jac_fn)
+
+        t_eval = np.linspace(0, 2, 5)
+        y0 = np.array([0.0], dtype=np.float64)
+        empty_p = np.array([], dtype=np.float64)
+
+        ok, y_mat = solver.solve_batch(t_eval, y0, empty_p)
+        assert ok
+        assert y_mat.shape == (1, 5)
+        np.testing.assert_allclose(y_mat[0], 3 * t_eval, atol=1e-10)
+
+    def test_solve_batch_failure_stops_early(self):
+        """F(y) = y^2 + 1 has no real root -- batch must report failure."""
+        t = casadi.MX.sym("t")
+        y = casadi.MX.sym("y")
+        p = casadi.MX.sym("p", 0)
+        res = y ** 2 + 1
+        jac_expr = casadi.jacobian(res, y)
+        res_fn = casadi.Function("res", [t, y, p], [res])
+        jac_fn = casadi.Function("newton_jac", [t, y, p], [jac_expr])
+        solver = _build_solver(res_fn, jac_fn, max_iter=50)
+
+        t_eval = np.array([0.0, 1.0, 2.0], dtype=np.float64)
+        y0 = np.array([1.0], dtype=np.float64)
+        empty_p = np.array([], dtype=np.float64)
+
+        ok, _ = solver.solve_batch(t_eval, y0, empty_p)
+        assert not ok
+
+    def test_solve_batch_single_time(self, scalar_solver):
+        """Batch with one time point should match single solve."""
+        t_eval = np.array([0.0], dtype=np.float64)
+        y0 = np.array([1.5], dtype=np.float64)
+        empty_p = np.array([], dtype=np.float64)
+
+        ok_s, y_s = scalar_solver.solve(0.0, y0, empty_p)
+        ok_b, y_b = scalar_solver.solve_batch(t_eval, y0, empty_p)
+
+        assert ok_s and ok_b
+        np.testing.assert_allclose(y_b.ravel(), y_s, atol=1e-12)
+
+    def test_solve_batch_multivariable(self):
+        """Batch solve a 2-variable time-dependent system."""
+        t = casadi.MX.sym("t")
+        xy = casadi.MX.sym("xy", 2)
+        p = casadi.MX.sym("p", 0)
+        res = casadi.vertcat(xy[0] - 2 * t, xy[1] - t ** 2)
+        jac_expr = casadi.jacobian(res, xy)
+        res_fn = casadi.Function("res", [t, xy, p], [res])
+        jac_fn = casadi.Function("newton_jac", [t, xy, p], [jac_expr])
+        solver = _build_solver(res_fn, jac_fn)
+
+        t_eval = np.array([1.0, 2.0, 3.0], dtype=np.float64)
+        y0 = np.array([0.0, 0.0], dtype=np.float64)
+        empty_p = np.array([], dtype=np.float64)
+
+        ok, y_mat = solver.solve_batch(t_eval, y0, empty_p)
+        assert ok
+        assert y_mat.shape == (2, 3)
+        np.testing.assert_allclose(y_mat[0], 2 * t_eval, atol=1e-10)
+        np.testing.assert_allclose(y_mat[1], t_eval ** 2, atol=1e-10)
+
+    def test_solve_batch_output_is_fortran_order(self, scalar_solver):
+        """Output array should be column-major (Fortran order)."""
+        t_eval = np.array([0.0, 1.0], dtype=np.float64)
+        y0 = np.array([1.5], dtype=np.float64)
+        empty_p = np.array([], dtype=np.float64)
+
+        _, y_mat = scalar_solver.solve_batch(t_eval, y0, empty_p)
+        assert y_mat.flags["F_CONTIGUOUS"]
