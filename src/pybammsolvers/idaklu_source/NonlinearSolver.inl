@@ -106,6 +106,7 @@ inline NonlinearResult NonlinearSolver::RunNewtonLoop(sunrealtype t) {
 
   for (int iter = 0; iter < max_iter_; iter++) {
     sunrealtype res_norm = EvalResidualAndNorm(t);
+    if (log_) log_->log_newton_iteration(iter, res_norm, delnorm);
 
     int lsflag = SetupAndSolveLinearSystem(t);
     if (lsflag > 0) {
@@ -180,6 +181,7 @@ inline NonlinearResult NonlinearSolver::solve_single(
 ) {
   std::memcpy(x_.data(), y, n_vars_ * sizeof(sunrealtype));
 
+  if (log_) log_->log_newton_start(t, n_vars_);
   NonlinearResult result = RunNewtonLoop(t);
 
   std::memcpy(y, x_.data(), n_vars_ * sizeof(sunrealtype));
