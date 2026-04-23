@@ -8,16 +8,31 @@ import pytest
 import pybammsolvers.idaklu as idaklu
 
 
-def _build_solver(res_fn, jac_fn, *, atol=None, rtol=1e-10, step_tol=1e-10,
-                  max_iter=100, max_backtracks=5, eps_newt=0.33,
-                  use_sparse=False):
+def _build_solver(
+    res_fn,
+    jac_fn,
+    *,
+    atol=None,
+    rtol=1e-10,
+    step_tol=1e-10,
+    max_iter=100,
+    max_backtracks=5,
+    eps_newt=0.33,
+    use_sparse=False,
+):
     n_vars = res_fn.nnz_out(0)
     if atol is None:
         atol = [rtol] * n_vars
     return idaklu.StandaloneNewtonSolver(
         idaklu.generate_function(res_fn.serialize()),
         idaklu.generate_function(jac_fn.serialize()),
-        atol, rtol, step_tol, max_iter, max_backtracks, eps_newt, use_sparse,
+        atol,
+        rtol,
+        step_tol,
+        max_iter,
+        max_backtracks,
+        eps_newt,
+        use_sparse,
     )
 
 
@@ -26,7 +41,7 @@ def _make_scalar_fns():
     t = casadi.MX.sym("t")
     y = casadi.MX.sym("y")
     p = casadi.MX.sym("p", 0)
-    res = y ** 2 - 4
+    res = y**2 - 4
     jac_expr = casadi.jacobian(res, y)
     return (
         casadi.Function("res", [t, y, p], [res]),
@@ -180,7 +195,7 @@ class TestStandaloneNewtonSolver:
         t = casadi.MX.sym("t")
         y = casadi.MX.sym("y")
         p = casadi.MX.sym("p", 0)
-        res = y ** 2 + 1
+        res = y**2 + 1
         jac_expr = casadi.jacobian(res, y)
         res_fn = casadi.Function("res", [t, y, p], [res])
         jac_fn = casadi.Function("newton_jac", [t, y, p], [jac_expr])
@@ -230,7 +245,9 @@ class TestStandaloneNewtonSolver:
         empty_p = np.array([], dtype=np.float64)
         for _ in range(10):
             ok, y = scalar_solver.solve(
-                0.0, np.array([1.5], dtype=np.float64), empty_p,
+                0.0,
+                np.array([1.5], dtype=np.float64),
+                empty_p,
             )
             assert ok
             np.testing.assert_allclose(y, [2.0], atol=1e-10)
@@ -240,8 +257,13 @@ class TestStandaloneNewtonSolver:
         solver = _build_solver(res_fn, jac_fn)
         empty_p = np.array([], dtype=np.float64)
 
-        for y0_val, expected in [(0.5, 2.0), (1.0, 2.0), (10.0, 2.0),
-                                  (-0.5, -2.0), (-10.0, -2.0)]:
+        for y0_val, expected in [
+            (0.5, 2.0),
+            (1.0, 2.0),
+            (10.0, 2.0),
+            (-0.5, -2.0),
+            (-10.0, -2.0),
+        ]:
             ok, y = solver.solve(0.0, np.array([y0_val], dtype=np.float64), empty_p)
             assert ok
             np.testing.assert_allclose(y, [expected], atol=1e-8)
@@ -301,7 +323,7 @@ class TestStandaloneNewtonSolver:
         t = casadi.MX.sym("t")
         y = casadi.MX.sym("y")
         p = casadi.MX.sym("p", 0)
-        res = y ** 2 + 1
+        res = y**2 + 1
         jac_expr = casadi.jacobian(res, y)
         res_fn = casadi.Function("res", [t, y, p], [res])
         jac_fn = casadi.Function("newton_jac", [t, y, p], [jac_expr])
@@ -331,7 +353,7 @@ class TestStandaloneNewtonSolver:
         t = casadi.MX.sym("t")
         xy = casadi.MX.sym("xy", 2)
         p = casadi.MX.sym("p", 0)
-        res = casadi.vertcat(xy[0] - 2 * t, xy[1] - t ** 2)
+        res = casadi.vertcat(xy[0] - 2 * t, xy[1] - t**2)
         jac_expr = casadi.jacobian(res, xy)
         res_fn = casadi.Function("res", [t, xy, p], [res])
         jac_fn = casadi.Function("newton_jac", [t, xy, p], [jac_expr])
@@ -345,7 +367,7 @@ class TestStandaloneNewtonSolver:
         assert ok
         assert y_mat.shape == (2, 3)
         np.testing.assert_allclose(y_mat[0], 2 * t_eval, atol=1e-10)
-        np.testing.assert_allclose(y_mat[1], t_eval ** 2, atol=1e-10)
+        np.testing.assert_allclose(y_mat[1], t_eval**2, atol=1e-10)
 
     def test_solve_batch_output_is_fortran_order(self, scalar_solver):
         """Output array should be column-major (Fortran order)."""
