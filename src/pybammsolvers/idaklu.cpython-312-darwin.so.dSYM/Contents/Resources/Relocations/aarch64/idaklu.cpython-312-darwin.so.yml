@@ -1,5 +1,0 @@
----
-triple:          'arm64-apple-darwin'
-binary-path:     '/Users/marcberliner/Documents/GitHub/pybammsolvers/src/pybammsolvers/idaklu.cpython-312-darwin.so'
-relocations:     []
-...
