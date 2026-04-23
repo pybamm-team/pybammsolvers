@@ -38,9 +38,9 @@ def _build_solver(
 
 def _make_scalar_fns():
     """F(y) = y^2 - 4, J = 2y. Roots at y = +/-2."""
-    t = casadi.MX.sym("t")
-    y = casadi.MX.sym("y")
-    p = casadi.MX.sym("p", 0)
+    t = casadi.SX.sym("t")
+    y = casadi.SX.sym("y")
+    p = casadi.SX.sym("p", 0)
     res = y**2 - 4
     jac_expr = casadi.jacobian(res, y)
     return (
@@ -52,9 +52,9 @@ def _make_scalar_fns():
 def _make_3x3_linear_fns():
     """Ax - b = 0 where A = [[2,1,0],[1,3,1],[0,1,2]], b = [4,10,6].
     Exact solution: x = [1, 2, 2]."""
-    t = casadi.MX.sym("t")
-    x = casadi.MX.sym("x", 3)
-    p = casadi.MX.sym("p", 0)
+    t = casadi.SX.sym("t")
+    x = casadi.SX.sym("x", 3)
+    p = casadi.SX.sym("p", 0)
     A = casadi.DM([[2, 1, 0], [1, 3, 1], [0, 1, 2]])
     b = casadi.DM([4, 10, 6])
     res = A @ x - b
@@ -134,9 +134,9 @@ class TestStandaloneNewtonSolver:
 
     def test_multivariable_nonlinear_system(self):
         """x^2 + y = 5, x + y^2 = 5. From (1,1) -> (1.7912..., 1.7912...)."""
-        t = casadi.MX.sym("t")
-        xy = casadi.MX.sym("xy", 2)
-        p = casadi.MX.sym("p", 0)
+        t = casadi.SX.sym("t")
+        xy = casadi.SX.sym("xy", 2)
+        p = casadi.SX.sym("p", 0)
         res = casadi.vertcat(xy[0] ** 2 + xy[1] - 5, xy[0] + xy[1] ** 2 - 5)
         jac_expr = casadi.jacobian(res, xy)
         res_fn = casadi.Function("res", [t, xy, p], [res])
@@ -154,9 +154,9 @@ class TestStandaloneNewtonSolver:
 
     def test_with_inputs(self):
         """F(y, p) = y - p = 0 with p=[7.0] -> y=7."""
-        t = casadi.MX.sym("t")
-        y = casadi.MX.sym("y")
-        p = casadi.MX.sym("p")
+        t = casadi.SX.sym("t")
+        y = casadi.SX.sym("y")
+        p = casadi.SX.sym("p")
         res = y - p
         jac_expr = casadi.jacobian(res, y)
         res_fn = casadi.Function("res", [t, y, p], [res])
@@ -173,9 +173,9 @@ class TestStandaloneNewtonSolver:
 
     def test_with_time_parameter(self):
         """F(t, y) = y - 3*t. At t=2.0, y=6.0."""
-        t = casadi.MX.sym("t")
-        y = casadi.MX.sym("y")
-        p = casadi.MX.sym("p", 0)
+        t = casadi.SX.sym("t")
+        y = casadi.SX.sym("y")
+        p = casadi.SX.sym("p", 0)
         res = y - 3 * t
         jac_expr = casadi.jacobian(res, y)
         res_fn = casadi.Function("res", [t, y, p], [res])
@@ -192,9 +192,9 @@ class TestStandaloneNewtonSolver:
 
     def test_convergence_failure(self):
         """F(y) = y^2 + 1 has no real root."""
-        t = casadi.MX.sym("t")
-        y = casadi.MX.sym("y")
-        p = casadi.MX.sym("p", 0)
+        t = casadi.SX.sym("t")
+        y = casadi.SX.sym("y")
+        p = casadi.SX.sym("p", 0)
         res = y**2 + 1
         jac_expr = casadi.jacobian(res, y)
         res_fn = casadi.Function("res", [t, y, p], [res])
@@ -225,9 +225,9 @@ class TestStandaloneNewtonSolver:
     def test_n_vars_inferred(self):
         """Construct solvers for different sizes; n_vars is inferred automatically."""
         for n in [1, 3, 10]:
-            t = casadi.MX.sym("t")
-            y = casadi.MX.sym("y", n)
-            p = casadi.MX.sym("p", 0)
+            t = casadi.SX.sym("t")
+            y = casadi.SX.sym("y", n)
+            p = casadi.SX.sym("p", 0)
             res = y
             jac_expr = casadi.jacobian(res, y)
             res_fn = casadi.Function("res", [t, y, p], [res])
@@ -300,9 +300,9 @@ class TestStandaloneNewtonSolver:
 
     def test_solve_batch_time_dependent(self):
         """F(t, y) = y - 3*t.  Solution: y(t) = 3*t."""
-        t = casadi.MX.sym("t")
-        y = casadi.MX.sym("y")
-        p = casadi.MX.sym("p", 0)
+        t = casadi.SX.sym("t")
+        y = casadi.SX.sym("y")
+        p = casadi.SX.sym("p", 0)
         res = y - 3 * t
         jac_expr = casadi.jacobian(res, y)
         res_fn = casadi.Function("res", [t, y, p], [res])
@@ -320,9 +320,9 @@ class TestStandaloneNewtonSolver:
 
     def test_solve_batch_failure_stops_early(self):
         """F(y) = y^2 + 1 has no real root -- batch must report failure."""
-        t = casadi.MX.sym("t")
-        y = casadi.MX.sym("y")
-        p = casadi.MX.sym("p", 0)
+        t = casadi.SX.sym("t")
+        y = casadi.SX.sym("y")
+        p = casadi.SX.sym("p", 0)
         res = y**2 + 1
         jac_expr = casadi.jacobian(res, y)
         res_fn = casadi.Function("res", [t, y, p], [res])
@@ -350,9 +350,9 @@ class TestStandaloneNewtonSolver:
 
     def test_solve_batch_multivariable(self):
         """Batch solve a 2-variable time-dependent system."""
-        t = casadi.MX.sym("t")
-        xy = casadi.MX.sym("xy", 2)
-        p = casadi.MX.sym("p", 0)
+        t = casadi.SX.sym("t")
+        xy = casadi.SX.sym("xy", 2)
+        p = casadi.SX.sym("p", 0)
         res = casadi.vertcat(xy[0] - 2 * t, xy[1] - t**2)
         jac_expr = casadi.jacobian(res, xy)
         res_fn = casadi.Function("res", [t, xy, p], [res])
