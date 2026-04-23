@@ -153,19 +153,12 @@ jobs:
 
             # Can't download LLVM-OpenMP directly, use conda and set environment variables
             brew install miniforge
-            # Homebrew cask uses versioned dir: .../Caskroom/miniforge/<ver>/base (not .../miniforge/base)
+            conda create -n pybammsolvers-dev $OPENMP_URL
             if [[ $(uname -m) == "x86_64" ]]; then
-              MFORGE_BASE=$(ls -d /usr/local/Caskroom/miniforge/*/base 2>/dev/null | head -n1)
-            else
-              MFORGE_BASE=$(ls -d /opt/homebrew/Caskroom/miniforge/*/base 2>/dev/null | head -n1)
+              PREFIX="/usr/local/Caskroom/miniforge/base/envs/pybammsolvers-dev"
+            elif [[ $(uname -m) == "arm64" ]]; then
+              PREFIX="/opt/homebrew/Caskroom/miniforge/base/envs/pybammsolvers-dev"
             fi
-            if [[ -z "${MFORGE_BASE}" || ! -d "${MFORGE_BASE}" ]]; then
-              echo "Miniforge base not found under Homebrew Caskroom (expected .../Caskroom/miniforge/*/base)" >&2
-              exit 1
-            fi
-            export PATH="${MFORGE_BASE}/condabin:${PATH}"
-            conda create -n pybammsolvers-dev -y $OPENMP_URL
-            PREFIX="${MFORGE_BASE}/envs/pybammsolvers-dev"
 
             # Copy libomp.dylib from PREFIX to $SOLVER_LIB_PATH, needed for wheel repair
             cp $PREFIX/lib/libomp.dylib $SOLVER_LIB_PATH/.
