@@ -214,7 +214,7 @@ def exponential_decay_solver(idaklu_module, exponential_decay_model):
         "nonlinear_convergence_coefficient": 0.33,
         "nonlinear_convergence_coefficient_ic": 0.0033,
         "suppress_algebraic_error": False,
-        "hermite_interpolation": True,
+        "hermite_interpolation": False,
         "calc_ic": False,  # We provide consistent initial conditions
         "init_all_y_ic": False,
         "max_num_steps_ic": 5,
