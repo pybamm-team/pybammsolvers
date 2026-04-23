@@ -239,7 +239,7 @@ void IDAKLUSolverOpenMP<ExprSet>::BuildAlgebraicSolver(const sunrealtype* id_val
   auto* yyp_ptr = yyp;
   const sunrealtype* atol_data = N_VGetArrayPointer(avtol);
 
-  using Mode = AlgSolverState::Mode;
+  using Mode = typename AlgSolverState::Mode;
   bool has_alg_fns = (funcs->alg_res->nnz_out() > 0 && funcs->alg_jac->nnz_out() > 0);
   as.mode = has_alg_fns ? Mode::SUBBLOCK : Mode::FULL;
 
