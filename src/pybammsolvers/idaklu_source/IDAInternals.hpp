@@ -5,8 +5,8 @@
 #include <sundials/sundials_types.h>
 #include <sundials/sundials_nvector.h>
 
-static_assert(SUNDIALS_VERSION_MAJOR == 7 && SUNDIALS_VERSION_MINOR >= 6,
-  "IDAInternals requires SUNDIALS >= 7.6.0");
+static_assert(SUNDIALS_VERSION_MAJOR == 7 && SUNDIALS_VERSION_MINOR == 6,
+  "IDAInternals is pinned to SUNDIALS 7.6.x; bumping requires re-auditing IDAMem layout");
 
 extern "C" {
   int IDAInitialSetup(IDAMem IDA_mem);

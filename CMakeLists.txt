@@ -78,6 +78,7 @@ pybind11_add_module(idaklu
         src/pybammsolvers/idaklu_source/Options.hpp
         src/pybammsolvers/idaklu_source/Options.cpp
         src/pybammsolvers/idaklu_source/StandaloneNewtonSolver.hpp
+        src/pybammsolvers/idaklu_source/StandaloneNewtonSolver.cpp
         # IDAKLU expressions / function evaluation [abstract]
         src/pybammsolvers/idaklu_source/Expressions/Expressions.hpp
         src/pybammsolvers/idaklu_source/Expressions/Base/Expression.hpp
@@ -226,7 +227,7 @@ endif ()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR})
 # Sundials
-find_package(SUNDIALS REQUIRED)
+find_package(SUNDIALS 7.6 REQUIRED)
 message("SUNDIALS found in ${SUNDIALS_INCLUDE_DIR}: ${SUNDIALS_LIBRARIES}")
 target_include_directories(idaklu PRIVATE ${SUNDIALS_INCLUDE_DIR})
 # Include SUNDIALS source dirs for internal headers (ida_impl.h, etc.)
