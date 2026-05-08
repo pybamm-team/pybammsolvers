@@ -17,7 +17,20 @@ if (DEFINED ENV{VCPKG_DEFAULT_TRIPLET} AND NOT DEFINED VCPKG_TARGET_TRIPLET)
             CACHE STRING "Vcpkg target triplet")
 endif ()
 
+if(WIN32 AND NOT DEFINED ENV{VCPKG_ROOT_DIR})
+    message(FATAL_ERROR "Windows builds require the VCPKG_ROOT_DIR environment variable to be set.")
+endif()
+
 project(idaklu)
+
+# Default lib root locations (previously injected via setup.py's -DSuiteSparse_ROOT/-DSUNDIALS_ROOT).
+# install_KLU_Sundials.py installs into ${CMAKE_SOURCE_DIR}/.idaklu by default.
+if(NOT WIN32 AND NOT DEFINED SuiteSparse_ROOT)
+    set(SuiteSparse_ROOT "${CMAKE_SOURCE_DIR}/.idaklu")
+endif()
+if(NOT WIN32 AND NOT DEFINED SUNDIALS_ROOT)
+    set(SUNDIALS_ROOT "${CMAKE_SOURCE_DIR}/.idaklu")
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -50,7 +63,6 @@ if (${PYBAMM_IDAKLU_EXPR_CASADI} STREQUAL "ON")
     )
 endif ()
 
-# The complete (all dependencies) sources list should be mirrored in setup.py
 pybind11_add_module(idaklu
         # pybind11 interface
         src/pybammsolvers/idaklu.cpp
@@ -243,3 +255,7 @@ else ()
 endif ()
 include_directories(${SuiteSparse_INCLUDE_DIRS})
 target_link_libraries(idaklu PRIVATE ${SuiteSparse_LIBRARIES})
+
+# Install the pybind11 module into the wheel's pybammsolvers package directory.
+# Required for scikit-build-core to package the built .so into the wheel.
+install(TARGETS idaklu LIBRARY DESTINATION ${SKBUILD_PROJECT_NAME})
