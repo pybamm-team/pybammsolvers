@@ -23,7 +23,6 @@ endif()
 
 project(idaklu)
 
-# Default lib root locations (previously injected via setup.py's -DSuiteSparse_ROOT/-DSUNDIALS_ROOT).
 # install_KLU_Sundials.py installs into ${CMAKE_SOURCE_DIR}/.idaklu by default.
 if(NOT WIN32 AND NOT DEFINED SuiteSparse_ROOT)
     set(SuiteSparse_ROOT "${CMAKE_SOURCE_DIR}/.idaklu")
@@ -101,9 +100,7 @@ pybind11_add_module(idaklu
 )
 
 if (NOT DEFINED USE_PYTHON_CASADI)
-    # On Windows, CasADi is provided by vcpkg (no pip wheel exists); on
-    # Linux/macOS it's a pip dep. Mirrors the gate that setup.py's
-    # `USE_PYTHON_CASADI = system() != "Windows"` used to enforce.
+    # Windows uses vcpkg for CasADi (no pip wheel exists); Linux/macOS use pip.
     if (WIN32)
         set(USE_PYTHON_CASADI FALSE)
     else()
@@ -157,22 +154,14 @@ if (${USE_PYTHON_CASADI})
         message("Found Python CasADi library directory: ${CASADI_LIB_DIR}")
         target_link_directories(idaklu PRIVATE ${CASADI_LIB_DIR})
 
-        # RPATH layout for the idaklu module (`pybammsolvers/idaklu.<abi>.so`):
-        #
-        #   @loader_path/../casadi (or $ORIGIN/../casadi on Linux)
-        #       Finds libcasadi via the casadi pip package at runtime
-        #       (site-packages/casadi/libcasadi.dylib).
-        #
-        #   ${SUNDIALS_ROOT}/lib  (and lib64 on RHEL-like manylinux)
-        #   ${SuiteSparse_ROOT}/lib
-        #       Absolute paths to the vendored SUNDIALS/SuiteSparse libs
-        #       built by install_KLU_Sundials.py. Used:
-        #         * at runtime for local dev / sdist installs;
-        #         * at wheel-repair time so auditwheel/delocate can locate
-        #           the libs to bundle into the wheel — the repair tools
-        #           rewrite these entries to bundled-lib paths.
-        #
-        # Windows uses vcpkg static linking, so no RPATH is needed there.
+        # RPATH for `pybammsolvers/idaklu.<abi>.so`:
+        #   @loader_path/../casadi (or $ORIGIN/...): finds libcasadi via the
+        #     casadi pip package at runtime.
+        #   .idaklu/{lib,lib64}: vendored SUNDIALS/SuiteSparse from
+        #     install_KLU_Sundials.py — used at runtime for local/sdist
+        #     installs, and at wheel-repair time so auditwheel/delocate can
+        #     locate the libs to bundle (they rewrite these entries during
+        #     repair). Windows uses vcpkg static linking; no RPATH needed.
         if (APPLE)
             set(IDAKLU_INSTALL_RPATH
                 "@loader_path/../casadi"
@@ -263,6 +252,5 @@ endif ()
 include_directories(${SuiteSparse_INCLUDE_DIRS})
 target_link_libraries(idaklu PRIVATE ${SuiteSparse_LIBRARIES})
 
-# Install the pybind11 module into the wheel's pybammsolvers package directory.
-# Required for scikit-build-core to package the built .so into the wheel.
+# Place the .so under pybammsolvers/ in the wheel.
 install(TARGETS idaklu LIBRARY DESTINATION ${SKBUILD_PROJECT_NAME})

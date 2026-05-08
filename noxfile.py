@@ -19,10 +19,8 @@ PYBAMM_ENV = {
     "MPLBACKEND": "Agg",
     # Expression evaluators (...EXPR_CASADI cannot be fully disabled at this time)
     "PYBAMM_IDAKLU_EXPR_CASADI": os.getenv("PYBAMM_IDAKLU_EXPR_CASADI", "ON"),
-    # Disable scikit-build-core's editable-install auto-rebuild for nox sessions.
-    # The auto-rebuild relies on build tools that are removed after install when
-    # build isolation is used; we install once at session start and don't need
-    # rebuilds during tests.
+    # Disable scikit-build-core's auto-rebuild on import: it relies on build
+    # tools that vanish with build isolation, and tests don't need rebuilds.
     "SKBUILD_EDITABLE_REBUILD": "false",
 }
 VENV_DIR = Path("./venv").resolve()
@@ -88,11 +86,9 @@ def run_integration(session):
     if sys.platform != "win32":
         session.run("python", "install_KLU_Sundials.py")
 
-    # Install pybammsolvers editable so a later `pip install pybamm` cannot
-    # shadow our local build with the PyPI release.
+    # Editable install first so a later `pip install pybamm` cannot shadow it
+    # with the PyPI release.
     session.install("-e", ".[dev]", silent=False)
-
-    # Install PyBaMM (depends on pybammsolvers; uv resolves the editable correctly).
     session.install("pybamm", silent=False)
 
     # Run integration tests
@@ -225,9 +221,8 @@ def run_pybamm_tests(session):
     else:
         session.warn("Skipping install_KLU_Sundials.py on Windows")
 
-    # Install local pybammsolvers editable. The editable .pth redirect keeps
-    # subsequent `pip install pybamm` from shadowing it with the PyPI release,
-    # so --force-reinstall (which used to defeat editable mode) is unnecessary.
+    # Editable install first so a later `pip install pybamm` cannot shadow it
+    # with the PyPI release.
     session.install("-e", ".", "--no-deps", silent=False)
 
     # Install PyBaMM with all dependencies

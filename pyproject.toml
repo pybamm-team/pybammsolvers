@@ -37,8 +37,7 @@ dev = [
 cmake.version = ">=3.13"
 build-dir = "build/{wheel_tag}"
 wheel.packages = ["src/pybammsolvers"]
-# C++ source files live under src/pybammsolvers/ but are compiled into the
-# .so by CMake; they don't need to ship in the wheel.
+# C++ sources are compiled into the .so; they don't need to ship in the wheel.
 wheel.exclude = ["pybammsolvers/idaklu.cpp", "pybammsolvers/idaklu_source/**"]
 editable.mode = "redirect"
 editable.rebuild = true

@@ -89,8 +89,7 @@ jobs:
           CIBW_BEFORE_ALL_LINUX: >
             yum -y install openblas-devel lapack-devel &&
             python install_KLU_Sundials.py
-          # libcasadi is shipped as a pip dependency, not bundled — the .so
-          # locates it at runtime via $ORIGIN/../casadi.
+          # libcasadi ships as a pip dep, not bundled (resolved at runtime via $ORIGIN/../casadi).
           CIBW_REPAIR_WHEEL_COMMAND_LINUX: auditwheel repair --exclude libcasadi.so.3.7 -w {dest_dir} {wheel}
           CIBW_TEST_EXTRAS: "dev"
           CIBW_TEST_COMMAND: |
@@ -166,8 +165,7 @@ jobs:
 
             export CC=/usr/bin/clang
             export CXX=/usr/bin/clang++
-            # CFLAGS/CXXFLAGS expose conda's libomp headers to install_KLU_Sundials.py;
-            # the wheel's idaklu .so picks up libomp via CMake's find_package(OpenMP).
+            # Expose conda's libomp headers to install_KLU_Sundials.py.
             export CFLAGS="$CFLAGS -I$PREFIX/include"
             export CXXFLAGS="$CXXFLAGS -I$PREFIX/include"
 
@@ -178,14 +176,10 @@ jobs:
           MACOSX_DEPLOYMENT_TARGET: ${{ matrix.os == 'macos-latest' && '11.0' || '10.13' }}
           CIBW_ARCHS_MACOS: auto
           CIBW_BEFORE_BUILD: python -m pip install delocate
-          # libcasadi ships as a pip dependency (the casadi package), not
-          # bundled. The .so's @rpath/libcasadi.3.7.dylib reference is found
-          # at runtime via the @loader_path/../casadi rpath entry pointing
-          # to site-packages/casadi/. delocate can't resolve it at repair
-          # time (casadi lives in the build venv, not next to the .so), so:
-          #   --ignore-missing-dependencies: skip the unresolved libcasadi
-          #     ref instead of failing.
-          #   --exclude libcasadi: belt-and-braces — never bundle libcasadi.
+          # libcasadi ships as a pip dep, not bundled (resolved at runtime via
+          # @loader_path/../casadi). delocate can't resolve it at repair time
+          # since casadi lives in the build venv, not next to the .so — hence
+          # --ignore-missing-dependencies. --exclude is belt-and-braces.
           CIBW_REPAIR_WHEEL_COMMAND: |
             if [[ $(uname -m) == "x86_64" ]]; then
               delocate-listdeps {wheel} && delocate-wheel -v -w {dest_dir} {wheel} --exclude libcasadi --ignore-missing-dependencies
