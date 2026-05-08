@@ -41,12 +41,15 @@ def set_environment_variables(env_dict, session):
 
 # Build deps for editable installs. Kept in sync with [build-system].requires
 # in pyproject.toml — duplicated here so we can install them into the session
-# venv before the editable install (see editable_install below).
+# venv before the editable install (see editable_install below). casadi is
+# included because CMake queries the casadi Python package at configure time
+# for include/library paths (USE_PYTHON_CASADI on Linux/macOS).
 BUILD_DEPS = (
     "scikit-build-core>=0.10",
     "pybind11>=3.0.1",
     "cmake>=3.13",
     "ninja",
+    "casadi==3.7.2; platform_system!='Windows'",
 )
 
 
