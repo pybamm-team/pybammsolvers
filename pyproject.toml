@@ -71,3 +71,12 @@ include = [
     "vcpkg.json",
     "vcpkg-configuration.json",
 ]
+
+# Build pybammsolvers against the project venv rather than uv's ephemeral
+# build venv. scikit-build-core's editable rebuild bakes absolute paths
+# (e.g. CMAKE_MAKE_PROGRAM=/path/to/ninja) into build/.../CMakeCache.txt;
+# without this, the cached path points into uv's torn-down build venv and
+# subsequent rebuilds fail. Build deps live in [project.optional-dependencies].dev.
+# Affects uv only (uv sync, uv pip); cibuildwheel/pip ignore [tool.uv].
+[tool.uv]
+no-build-isolation-package = ["pybammsolvers"]

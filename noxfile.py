@@ -56,10 +56,14 @@ BUILD_DEPS = (
 def editable_install(session, *extras):
     """Install pybammsolvers in editable mode without build isolation.
 
-    Build deps are installed into the session venv first so scikit-build-core's
-    `editable.rebuild = true` shim records cmake/ninja paths that survive
-    after install (pip's build-isolation tmp env is torn down post-install,
-    leaving recorded paths dangling and breaking auto-rebuild on import).
+    scikit-build-core's `editable.rebuild = true` shim bakes absolute
+    cmake/ninja paths into build/.../CMakeCache.txt; if those tools live
+    in pip's tmp build env, the recorded paths dangle after install and
+    auto-rebuild fails on import. Pre-installing BUILD_DEPS into the
+    session venv and passing --no-build-isolation keeps the paths stable.
+
+    `uv sync` users get the same behaviour automatically via
+    [tool.uv].no-build-isolation-package in pyproject.toml.
     """
     session.install(*BUILD_DEPS, silent=False)
     target = "." if not extras else f".[{','.join(extras)}]"
@@ -279,8 +283,9 @@ def run_dev_rebuild(session):
 
     Escape hatch for when scikit-build-core's `editable.rebuild = true`
     auto-rebuild is bypassed. Requires build deps in the active venv
-    (`pip install -e .[dev]` provides them); `--no-build-isolation` keeps
-    cmake/ninja paths stable for subsequent auto-rebuilds.
+    (`uv sync --extra dev` provides them). `--no-build-isolation` is
+    redundant with [tool.uv].no-build-isolation-package in pyproject.toml
+    but kept explicit for clarity.
     """
     set_environment_variables(PYBAMM_ENV, session=session)
     session.run(
