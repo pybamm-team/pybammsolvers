@@ -101,7 +101,14 @@ pybind11_add_module(idaklu
 )
 
 if (NOT DEFINED USE_PYTHON_CASADI)
-    set(USE_PYTHON_CASADI TRUE)
+    # On Windows, CasADi is provided by vcpkg (no pip wheel exists); on
+    # Linux/macOS it's a pip dep. Mirrors the gate that setup.py's
+    # `USE_PYTHON_CASADI = system() != "Windows"` used to enforce.
+    if (WIN32)
+        set(USE_PYTHON_CASADI FALSE)
+    else()
+        set(USE_PYTHON_CASADI TRUE)
+    endif()
 endif ()
 
 if (${USE_PYTHON_CASADI})
