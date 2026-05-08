@@ -150,41 +150,41 @@ if (${USE_PYTHON_CASADI})
         message("Found Python CasADi library directory: ${CASADI_LIB_DIR}")
         target_link_directories(idaklu PRIVATE ${CASADI_LIB_DIR})
 
-        # Set RPATH to find libraries relative to the module location
-        # This allows finding casadi in the same Python environment at runtime
-        # Module is at: site-packages/pybammsolvers/idaklu.so
-        # CasADi is at: site-packages/casadi/libcasadi.dylib
-        # SuiteSparse/SUNDIALS are found via DYLD_LIBRARY_PATH/LD_LIBRARY_PATH
-        # (set by noxfile or user environment) pointing to .idaklu/lib
-        # Note: Windows uses vcpkg with static linking, no RPATH needed
-        
-        # For CI wheel builds, use BUILD_WITH_INSTALL_RPATH=FALSE so that
-        # wheel repair tools (delocate/auditwheel) can properly analyze dependencies.
-        # For local development, use BUILD_WITH_INSTALL_RPATH=TRUE so the module
-        # works immediately after pip install without wheel repair.
-        if(DEFINED ENV{CIBUILDWHEEL})
-            set(USE_INSTALL_RPATH_AT_BUILD FALSE)
-        else()
-            set(USE_INSTALL_RPATH_AT_BUILD TRUE)
-        endif()
-        
+        # RPATH layout for the idaklu module (`pybammsolvers/idaklu.<abi>.so`):
+        #
+        #   @loader_path/../casadi (or $ORIGIN/../casadi on Linux)
+        #       Finds libcasadi via the casadi pip package at runtime
+        #       (site-packages/casadi/libcasadi.dylib).
+        #
+        #   ${SUNDIALS_ROOT}/lib  (and lib64 on RHEL-like manylinux)
+        #   ${SuiteSparse_ROOT}/lib
+        #       Absolute paths to the vendored SUNDIALS/SuiteSparse libs
+        #       built by install_KLU_Sundials.py. Used:
+        #         * at runtime for local dev / sdist installs;
+        #         * at wheel-repair time so auditwheel/delocate can locate
+        #           the libs to bundle into the wheel — the repair tools
+        #           rewrite these entries to bundled-lib paths.
+        #
+        # Windows uses vcpkg static linking, so no RPATH is needed there.
         if (APPLE)
-            set_target_properties(
-                    idaklu PROPERTIES
-                    BUILD_RPATH "${CASADI_LIB_DIR}"
-                    BUILD_RPATH_USE_LINK_PATH FALSE
-                    INSTALL_RPATH "@loader_path/../casadi"
-                    BUILD_WITH_INSTALL_RPATH ${USE_INSTALL_RPATH_AT_BUILD}
+            set(IDAKLU_INSTALL_RPATH
+                "@loader_path/../casadi"
+                "${SUNDIALS_ROOT}/lib"
+                "${SuiteSparse_ROOT}/lib"
             )
         else()
-            set_target_properties(
-                    idaklu PROPERTIES
-                    BUILD_RPATH "${CASADI_LIB_DIR}"
-                    BUILD_RPATH_USE_LINK_PATH FALSE
-                    INSTALL_RPATH "$ORIGIN/../casadi"
-                    BUILD_WITH_INSTALL_RPATH ${USE_INSTALL_RPATH_AT_BUILD}
+            set(IDAKLU_INSTALL_RPATH
+                "$ORIGIN/../casadi"
+                "${SUNDIALS_ROOT}/lib"
+                "${SUNDIALS_ROOT}/lib64"
+                "${SuiteSparse_ROOT}/lib"
+                "${SuiteSparse_ROOT}/lib64"
             )
         endif()
+        set_target_properties(idaklu PROPERTIES
+            INSTALL_RPATH "${IDAKLU_INSTALL_RPATH}"
+            BUILD_WITH_INSTALL_RPATH TRUE
+        )
         # Link against casadi by name, not absolute path, to avoid issues with
         # pip's isolated build environments changing paths between configure and build
         # casadi 3.7+ exports the target as casadi::casadi instead of casadi

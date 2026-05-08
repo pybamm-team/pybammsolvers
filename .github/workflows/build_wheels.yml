@@ -89,7 +89,9 @@ jobs:
           CIBW_BEFORE_ALL_LINUX: >
             yum -y install openblas-devel lapack-devel &&
             python install_KLU_Sundials.py
-          CIBW_REPAIR_WHEEL_COMMAND_LINUX: auditwheel repair -w {dest_dir} {wheel}
+          # libcasadi is shipped as a pip dependency, not bundled — the .so
+          # locates it at runtime via $ORIGIN/../casadi.
+          CIBW_REPAIR_WHEEL_COMMAND_LINUX: auditwheel repair --exclude libcasadi.so.3.7 -w {dest_dir} {wheel}
           CIBW_TEST_EXTRAS: "dev"
           CIBW_TEST_COMMAND: |
             set -e -x
@@ -164,13 +166,10 @@ jobs:
 
             export CC=/usr/bin/clang
             export CXX=/usr/bin/clang++
-            export CPPFLAGS="$CPPFLAGS -Xpreprocessor -fopenmp"
+            # CFLAGS/CXXFLAGS expose conda's libomp headers to install_KLU_Sundials.py;
+            # the wheel's idaklu .so picks up libomp via CMake's find_package(OpenMP).
             export CFLAGS="$CFLAGS -I$PREFIX/include"
             export CXXFLAGS="$CXXFLAGS -I$PREFIX/include"
-            export LDFLAGS="$LDFLAGS -L$PREFIX/lib -lomp"
-
-            # cibuildwheel not recognising its environment variable, so set manually
-            export CIBUILDWHEEL="1"
 
             python install_KLU_Sundials.py
             python -m cibuildwheel --output-dir wheelhouse
@@ -179,12 +178,14 @@ jobs:
           MACOSX_DEPLOYMENT_TARGET: ${{ matrix.os == 'macos-latest' && '11.0' || '10.13' }}
           CIBW_ARCHS_MACOS: auto
           CIBW_BEFORE_BUILD: python -m pip install delocate
+          # libcasadi is shipped as a pip dependency, not bundled — the .so
+          # locates it at runtime via @loader_path/../casadi.
           CIBW_REPAIR_WHEEL_COMMAND: |
             if [[ $(uname -m) == "x86_64" ]]; then
-              delocate-listdeps {wheel} && delocate-wheel -v -w {dest_dir} {wheel}
+              delocate-listdeps {wheel} && delocate-wheel -v -w {dest_dir} {wheel} --exclude libcasadi
             elif [[ $(uname -m) == "arm64" ]]; then
               # Use higher macOS target for now since casadi/libc++.1.0.dylib is still not fixed
-              delocate-listdeps {wheel} && delocate-wheel -v -w {dest_dir} {wheel} --require-target-macos-version 11.1
+              delocate-listdeps {wheel} && delocate-wheel -v -w {dest_dir} {wheel} --exclude libcasadi --require-target-macos-version 11.1
               for file in {dest_dir}/*.whl; do mv "$file" "${file//macosx_11_1/macosx_11_0}"; done
             fi
           CIBW_TEST_EXTRAS: "dev"
