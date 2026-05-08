@@ -29,8 +29,14 @@ dev = [
     "pytest-cov",
     "psutil>=7.1.0",
     "wheel",
-    "pytest-mock>=3.15.1",
-    "pytest-xdist>=3.8.0",
+    # Build deps duplicated from [build-system].requires so they are present
+    # in the venv after `pip install -e .[dev]`, letting scikit-build-core's
+    # editable auto-rebuild (`editable.rebuild = true`) re-invoke CMake on
+    # source change without re-resolving build isolation each import.
+    "scikit-build-core>=0.10",
+    "pybind11>=3.0.1",
+    "cmake>=3.13",
+    "ninja",
 ]
 
 [tool.scikit-build]
@@ -48,6 +54,10 @@ metadata.version.regex = '''__version__\s*=\s*["'](?P<value>[^"']+)["']'''
 [tool.scikit-build.cmake.define]
 PYBAMM_IDAKLU_EXPR_CASADI = { env = "PYBAMM_IDAKLU_EXPR_CASADI", default = "ON" }
 
+# sdist contains C++ sources + build config only. SUNDIALS/SuiteSparse are
+# NOT vendored: source installs require either system-installed SUNDIALS and
+# SuiteSparse, or a git clone with submodules so install_KLU_Sundials.py can
+# build them. Bundling the submodules would inflate the sdist by ~400MB.
 [tool.scikit-build.sdist]
 include = [
     "CMakeLists.txt",
@@ -58,8 +68,6 @@ include = [
     "src/pybammsolvers/idaklu_source/**/*.inl",
     "src/pybammsolvers/idaklu.cpp",
     "install_KLU_Sundials.py",
-    "SuiteSparse/**",
-    "sundials/**",
     "vcpkg.json",
     "vcpkg-configuration.json",
 ]

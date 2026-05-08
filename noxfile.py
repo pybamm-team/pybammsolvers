@@ -19,9 +19,6 @@ PYBAMM_ENV = {
     "MPLBACKEND": "Agg",
     # Expression evaluators (...EXPR_CASADI cannot be fully disabled at this time)
     "PYBAMM_IDAKLU_EXPR_CASADI": os.getenv("PYBAMM_IDAKLU_EXPR_CASADI", "ON"),
-    # Disable scikit-build-core's auto-rebuild on import: it relies on build
-    # tools that vanish with build isolation, and tests don't need rebuilds.
-    "SKBUILD_EDITABLE_REBUILD": "false",
 }
 VENV_DIR = Path("./venv").resolve()
 
@@ -42,6 +39,30 @@ def set_environment_variables(env_dict, session):
         session.env[key] = value
 
 
+# Build deps for editable installs. Kept in sync with [build-system].requires
+# in pyproject.toml — duplicated here so we can install them into the session
+# venv before the editable install (see editable_install below).
+BUILD_DEPS = (
+    "scikit-build-core>=0.10",
+    "pybind11>=3.0.1",
+    "cmake>=3.13",
+    "ninja",
+)
+
+
+def editable_install(session, *extras):
+    """Install pybammsolvers in editable mode without build isolation.
+
+    Build deps are installed into the session venv first so scikit-build-core's
+    `editable.rebuild = true` shim records cmake/ninja paths that survive
+    after install (pip's build-isolation tmp env is torn down post-install,
+    leaving recorded paths dangling and breaking auto-rebuild on import).
+    """
+    session.install(*BUILD_DEPS, silent=False)
+    target = "." if not extras else f".[{','.join(extras)}]"
+    session.install("-e", target, "--no-build-isolation", silent=False)
+
+
 @nox.session(name="idaklu-requires")
 def run_pybamm_requires(session):
     """Download, compile, and install the build-time requirements for Linux and macOS.
@@ -57,7 +78,7 @@ def run_pybamm_requires(session):
 def run_unit(session):
     """Run the full test suite."""
     set_environment_variables(PYBAMM_ENV, session=session)
-    session.install("-e", ".[dev]", silent=False)
+    editable_install(session, "dev")
     session.run("pytest", "tests", "-m", "unit", *session.posargs)
 
 
@@ -65,7 +86,7 @@ def run_unit(session):
 def run_coverage(session):
     """Run tests with coverage reporting."""
     set_environment_variables(PYBAMM_ENV, session=session)
-    session.install("-e", ".[dev]", silent=False)
+    editable_install(session, "dev")
     session.install("pytest-cov", silent=False)
     session.run(
         "pytest",
@@ -88,7 +109,7 @@ def run_integration(session):
 
     # Editable install first so a later `pip install pybamm` cannot shadow it
     # with the PyPI release.
-    session.install("-e", ".[dev]", silent=False)
+    editable_install(session, "dev")
     session.install("pybamm", silent=False)
 
     # Run integration tests
@@ -111,7 +132,7 @@ def run_benchmarks(session):
     if sys.platform != "win32":
         session.run("python", "install_KLU_Sundials.py")
 
-    session.install("-e", ".[dev]", silent=False)
+    editable_install(session, "dev")
 
     # Install PyBaMM
     session.install("pybamm", silent=False)
@@ -223,7 +244,8 @@ def run_pybamm_tests(session):
 
     # Editable install first so a later `pip install pybamm` cannot shadow it
     # with the PyPI release.
-    session.install("-e", ".", "--no-deps", silent=False)
+    session.install(*BUILD_DEPS, silent=False)
+    session.install("-e", ".", "--no-deps", "--no-build-isolation", silent=False)
 
     # Install PyBaMM with all dependencies
     session.log("Installing PyBaMM with all dependencies...")
@@ -252,8 +274,10 @@ def run_pybamm_tests(session):
 def run_dev_rebuild(session):
     """Rebuild the C++ extension in-place against the active venv.
 
-    Use when scikit-build-core's `editable.rebuild = true` auto-rebuild is
-    bypassed (e.g. CI, debugging, or temporarily disabling auto-rebuild).
+    Escape hatch for when scikit-build-core's `editable.rebuild = true`
+    auto-rebuild is bypassed. Requires build deps in the active venv
+    (`pip install -e .[dev]` provides them); `--no-build-isolation` keeps
+    cmake/ninja paths stable for subsequent auto-rebuilds.
     """
     set_environment_variables(PYBAMM_ENV, session=session)
     session.run(
