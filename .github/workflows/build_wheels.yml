@@ -178,14 +178,20 @@ jobs:
           MACOSX_DEPLOYMENT_TARGET: ${{ matrix.os == 'macos-latest' && '11.0' || '10.13' }}
           CIBW_ARCHS_MACOS: auto
           CIBW_BEFORE_BUILD: python -m pip install delocate
-          # libcasadi is shipped as a pip dependency, not bundled — the .so
-          # locates it at runtime via @loader_path/../casadi.
+          # libcasadi ships as a pip dependency (the casadi package), not
+          # bundled. The .so's @rpath/libcasadi.3.7.dylib reference is found
+          # at runtime via the @loader_path/../casadi rpath entry pointing
+          # to site-packages/casadi/. delocate can't resolve it at repair
+          # time (casadi lives in the build venv, not next to the .so), so:
+          #   --ignore-missing-dependencies: skip the unresolved libcasadi
+          #     ref instead of failing.
+          #   --exclude libcasadi: belt-and-braces — never bundle libcasadi.
           CIBW_REPAIR_WHEEL_COMMAND: |
             if [[ $(uname -m) == "x86_64" ]]; then
-              delocate-listdeps {wheel} && delocate-wheel -v -w {dest_dir} {wheel} --exclude libcasadi
+              delocate-listdeps {wheel} && delocate-wheel -v -w {dest_dir} {wheel} --exclude libcasadi --ignore-missing-dependencies
             elif [[ $(uname -m) == "arm64" ]]; then
               # Use higher macOS target for now since casadi/libc++.1.0.dylib is still not fixed
-              delocate-listdeps {wheel} && delocate-wheel -v -w {dest_dir} {wheel} --exclude libcasadi --require-target-macos-version 11.1
+              delocate-listdeps {wheel} && delocate-wheel -v -w {dest_dir} {wheel} --exclude libcasadi --ignore-missing-dependencies --require-target-macos-version 11.1
               for file in {dest_dir}/*.whl; do mv "$file" "${file//macosx_11_1/macosx_11_0}"; done
             fi
           CIBW_TEST_EXTRAS: "dev"
