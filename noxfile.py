@@ -19,6 +19,11 @@ PYBAMM_ENV = {
     "MPLBACKEND": "Agg",
     # Expression evaluators (...EXPR_CASADI cannot be fully disabled at this time)
     "PYBAMM_IDAKLU_EXPR_CASADI": os.getenv("PYBAMM_IDAKLU_EXPR_CASADI", "ON"),
+    # Disable scikit-build-core's editable-install auto-rebuild for nox sessions.
+    # The auto-rebuild relies on build tools that are removed after install when
+    # build isolation is used; we install once at session start and don't need
+    # rebuilds during tests.
+    "SKBUILD_EDITABLE_REBUILD": "false",
 }
 VENV_DIR = Path("./venv").resolve()
 
@@ -54,8 +59,7 @@ def run_pybamm_requires(session):
 def run_unit(session):
     """Run the full test suite."""
     set_environment_variables(PYBAMM_ENV, session=session)
-    session.install("setuptools", silent=False)
-    session.install(".[dev]", silent=False)
+    session.install("-e", ".[dev]", silent=False)
     session.run("pytest", "tests", "-m", "unit", *session.posargs)
 
 
@@ -63,8 +67,7 @@ def run_unit(session):
 def run_coverage(session):
     """Run tests with coverage reporting."""
     set_environment_variables(PYBAMM_ENV, session=session)
-    session.install("setuptools", silent=False)
-    session.install(".[dev]", silent=False)
+    session.install("-e", ".[dev]", silent=False)
     session.install("pytest-cov", silent=False)
     session.run(
         "pytest",
@@ -85,15 +88,12 @@ def run_integration(session):
     if sys.platform != "win32":
         session.run("python", "install_KLU_Sundials.py")
 
-    session.install("setuptools", silent=False)
-    session.install(".[dev]", silent=False)
+    # Install pybammsolvers editable so a later `pip install pybamm` cannot
+    # shadow our local build with the PyPI release.
+    session.install("-e", ".[dev]", silent=False)
 
-    # Install PyBaMM
+    # Install PyBaMM (depends on pybammsolvers; uv resolves the editable correctly).
     session.install("pybamm", silent=False)
-
-    # Force PyBaMM to use our local pybammsolvers
-    session.run("uv", "pip", "uninstall", "pybammsolvers", silent=True)
-    session.install("-e", ".", "--no-deps", silent=False)
 
     # Run integration tests
     session.run("pytest", "tests", "-m", "integration", *session.posargs)
@@ -115,8 +115,7 @@ def run_benchmarks(session):
     if sys.platform != "win32":
         session.run("python", "install_KLU_Sundials.py")
 
-    session.install("setuptools", silent=False)
-    session.install(".[dev]", silent=False)
+    session.install("-e", ".[dev]", silent=False)
 
     # Install PyBaMM
     session.install("pybamm", silent=False)
@@ -226,12 +225,12 @@ def run_pybamm_tests(session):
     else:
         session.warn("Skipping install_KLU_Sundials.py on Windows")
 
-    # Install local pybammsolvers
-    # Use --force-reinstall to ensure uv uses the local source and doesn't fetch from PyPI
-    session.install(".", "--force-reinstall", silent=False)
+    # Install local pybammsolvers editable. The editable .pth redirect keeps
+    # subsequent `pip install pybamm` from shadowing it with the PyPI release,
+    # so --force-reinstall (which used to defeat editable mode) is unnecessary.
+    session.install("-e", ".", "--no-deps", silent=False)
 
     # Install PyBaMM with all dependencies
-    # pybammsolvers is already installed locally, so it won't fetch from PyPI
     session.log("Installing PyBaMM with all dependencies...")
     session.cd(str(pybamm_dir))
     # Install PyBaMM extras and dev dependency group (PEP 735)
@@ -252,3 +251,23 @@ def run_pybamm_tests(session):
         session.run("pytest", "tests/unit", *pytest_args)
         session.log("Running PyBaMM integration tests...")
         session.run("pytest", "tests/integration", *pytest_args)
+
+
+@nox.session(name="dev-rebuild", venv_backend="none")
+def run_dev_rebuild(session):
+    """Rebuild the C++ extension in-place against the active venv.
+
+    Use when scikit-build-core's `editable.rebuild = true` auto-rebuild is
+    bypassed (e.g. CI, debugging, or temporarily disabling auto-rebuild).
+    """
+    set_environment_variables(PYBAMM_ENV, session=session)
+    session.run(
+        "uv",
+        "pip",
+        "install",
+        "-e",
+        ".",
+        "--no-deps",
+        "--no-build-isolation",
+        external=True,
+    )
