@@ -53,7 +53,7 @@ BUILD_DEPS = (
 )
 
 
-def editable_install(session, *extras):
+def editable_install(session, *extras, no_deps=False):
     """Install pybammsolvers in editable mode without build isolation.
 
     scikit-build-core's `editable.rebuild = true` shim bakes absolute
@@ -67,7 +67,10 @@ def editable_install(session, *extras):
     """
     session.install(*BUILD_DEPS, silent=False)
     target = "." if not extras else f".[{','.join(extras)}]"
-    session.install("-e", target, "--no-build-isolation", silent=False)
+    install_args = ["-e", target, "--no-build-isolation"]
+    if no_deps:
+        install_args.append("--no-deps")
+    session.install(*install_args, silent=False)
 
 
 @nox.session(name="idaklu-requires")
@@ -251,8 +254,7 @@ def run_pybamm_tests(session):
 
     # Editable install first so a later `pip install pybamm` cannot shadow it
     # with the PyPI release.
-    session.install(*BUILD_DEPS, silent=False)
-    session.install("-e", ".", "--no-deps", "--no-build-isolation", silent=False)
+    editable_install(session, no_deps=True)
 
     # Install PyBaMM with all dependencies
     session.log("Installing PyBaMM with all dependencies...")

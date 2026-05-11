@@ -29,10 +29,8 @@ dev = [
     "pytest-cov",
     "psutil>=7.1.0",
     "wheel",
-    # Build deps duplicated from [build-system].requires so they are present
-    # in the venv after `pip install -e .[dev]`, letting scikit-build-core's
-    # editable auto-rebuild (`editable.rebuild = true`) re-invoke CMake on
-    # source change without re-resolving build isolation each import.
+    # Duplicated from [build-system].requires so editable.auto-rebuild has
+    # build tools available in the venv.
     "scikit-build-core>=0.10",
     "pybind11>=3.0.1",
     "cmake>=3.13",
@@ -54,10 +52,8 @@ metadata.version.regex = '''__version__\s*=\s*["'](?P<value>[^"']+)["']'''
 [tool.scikit-build.cmake.define]
 PYBAMM_IDAKLU_EXPR_CASADI = { env = "PYBAMM_IDAKLU_EXPR_CASADI", default = "ON" }
 
-# sdist contains C++ sources + build config only. SUNDIALS/SuiteSparse are
-# NOT vendored: source installs require either system-installed SUNDIALS and
-# SuiteSparse, or a git clone with submodules so install_KLU_Sundials.py can
-# build them. Bundling the submodules would inflate the sdist by ~400MB.
+# SUNDIALS/SuiteSparse are NOT vendored (would add ~400MB); source installs
+# need either system packages or `git submodule update --init`.
 [tool.scikit-build.sdist]
 include = [
     "CMakeLists.txt",
@@ -72,11 +68,7 @@ include = [
     "vcpkg-configuration.json",
 ]
 
-# Build pybammsolvers against the project venv rather than uv's ephemeral
-# build venv. scikit-build-core's editable rebuild bakes absolute paths
-# (e.g. CMAKE_MAKE_PROGRAM=/path/to/ninja) into build/.../CMakeCache.txt;
-# without this, the cached path points into uv's torn-down build venv and
-# subsequent rebuilds fail. Build deps live in [project.optional-dependencies].dev.
-# Affects uv only (uv sync, uv pip); cibuildwheel/pip ignore [tool.uv].
+# Prevent uv's ephemeral build venv from being torn down between CMake configure
+# and auto-rebuild (which bakes absolute paths into CMakeCache.txt).
 [tool.uv]
 no-build-isolation-package = ["pybammsolvers"]
