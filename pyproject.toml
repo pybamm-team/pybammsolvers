@@ -2,7 +2,8 @@
 requires = [
     "scikit-build-core>=0.10",
     "pybind11>=3.0.1",
-    # On Windows, use the CasADi vcpkg registry (CasADi is not pip-installable from PyPI for Windows)
+    # CasADi is pip-installable from PyPI on Windows, but finding the libcasadi.so path is
+    # finicky, so we prefer the vcpkg registry for Windows builds.
     "casadi==3.7.2; platform_system!='Windows'",
     # Note: the version of CasADi as a build-time dependency should be matched
     # cross platforms, so updates to its minimum version here should be accompanied
@@ -48,9 +49,6 @@ editable.rebuild = true
 metadata.version.provider = "scikit_build_core.metadata.regex"
 metadata.version.input = "src/pybammsolvers/version.py"
 metadata.version.regex = '''__version__\s*=\s*["'](?P<value>[^"']+)["']'''
-
-[tool.scikit-build.cmake.define]
-PYBAMM_IDAKLU_EXPR_CASADI = { env = "PYBAMM_IDAKLU_EXPR_CASADI", default = "ON" }
 
 # SUNDIALS/SuiteSparse are NOT vendored (would add ~400MB); source installs
 # need either system packages or `git submodule update --init`.

@@ -17,8 +17,6 @@ PYBAMM_ENV = {
     "DYLD_LIBRARY_PATH": f"{homedir}/.idaklu/lib",
     "PYTHONIOENCODING": "utf-8",
     "MPLBACKEND": "Agg",
-    # Expression evaluators (...EXPR_CASADI cannot be fully disabled at this time)
-    "PYBAMM_IDAKLU_EXPR_CASADI": os.getenv("PYBAMM_IDAKLU_EXPR_CASADI", "ON"),
 }
 VENV_DIR = Path("./venv").resolve()
 

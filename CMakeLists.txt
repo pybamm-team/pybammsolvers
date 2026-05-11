@@ -46,21 +46,11 @@ add_compile_definitions(_GLIBCXX_USE_CXX11_ABI=0)
 
 find_package(pybind11 CONFIG REQUIRED)
 
-# Check Casadi build flag
-if (NOT DEFINED PYBAMM_IDAKLU_EXPR_CASADI)
-    set(PYBAMM_IDAKLU_EXPR_CASADI ON)
-endif ()
-message("PYBAMM_IDAKLU_EXPR_CASADI: ${PYBAMM_IDAKLU_EXPR_CASADI}")
-
 # Casadi PyBaMM source files
-set(IDAKLU_EXPR_CASADI_SOURCE_FILES "")
-if (${PYBAMM_IDAKLU_EXPR_CASADI} STREQUAL "ON")
-    add_compile_definitions(CASADI_ENABLE)
-    set(IDAKLU_EXPR_CASADI_SOURCE_FILES
-            src/pybammsolvers/idaklu_source/Expressions/Casadi/CasadiFunctions.cpp
-            src/pybammsolvers/idaklu_source/Expressions/Casadi/CasadiFunctions.hpp
-    )
-endif ()
+set(IDAKLU_EXPR_CASADI_SOURCE_FILES
+        src/pybammsolvers/idaklu_source/Expressions/Casadi/CasadiFunctions.cpp
+        src/pybammsolvers/idaklu_source/Expressions/Casadi/CasadiFunctions.hpp
+)
 
 pybind11_add_module(idaklu
         # pybind11 interface

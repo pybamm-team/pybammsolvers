@@ -42,8 +42,10 @@ jobs:
           .\bootstrap-vcpkg.bat
 
       # Propagate GitHub Actions cache env vars so vcpkg's `x-gha` binary
-      # source can read/write cached binaries.
+      # source can read/write cached binaries. Disabled on release events to
+      # prevent cache poisoning attacks.
       - name: Export GitHub Actions cache env
+        if: ${{ github.event_name != 'release' }}
         uses: actions/github-script@v7
         with:
           script: |
