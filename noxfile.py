@@ -39,10 +39,8 @@ def set_environment_variables(env_dict, session):
         session.env[key] = value
 
 
-# Build deps for editable installs. Kept in sync with [build-system].requires
-# in pyproject.toml — duplicated here so we can install them into the session
-# venv before the editable install (see editable_install below). casadi is
-# included because CMake queries the casadi Python package at configure time
+# Synced with [build-system].requires; installed into the session venv before
+# editable install. casadi is needed because CMake queries it at configure time
 # for include/library paths (USE_PYTHON_CASADI on Linux/macOS).
 BUILD_DEPS = (
     "scikit-build-core>=0.10",
@@ -56,14 +54,11 @@ BUILD_DEPS = (
 def editable_install(session, *extras, no_deps=False):
     """Install pybammsolvers in editable mode without build isolation.
 
-    scikit-build-core's `editable.rebuild = true` shim bakes absolute
-    cmake/ninja paths into build/.../CMakeCache.txt; if those tools live
-    in pip's tmp build env, the recorded paths dangle after install and
-    auto-rebuild fails on import. Pre-installing BUILD_DEPS into the
-    session venv and passing --no-build-isolation keeps the paths stable.
-
-    `uv sync` users get the same behaviour automatically via
-    [tool.uv].no-build-isolation-package in pyproject.toml.
+    Pre-installing BUILD_DEPS into the session venv and passing
+    --no-build-isolation prevents scikit-build-core's editable.rebuild
+    shim from baking dangled paths (cmake/ninja in pip's ephemeral build
+    env) into CMakeCache.txt. `uv sync` users get the same behaviour
+    automatically via [tool.uv].no-build-isolation-package.
     """
     session.install(*BUILD_DEPS, silent=False)
     target = "." if not extras else f".[{','.join(extras)}]"
@@ -283,11 +278,9 @@ def run_pybamm_tests(session):
 def run_dev_rebuild(session):
     """Rebuild the C++ extension in-place against the active venv.
 
-    Escape hatch for when scikit-build-core's `editable.rebuild = true`
-    auto-rebuild is bypassed. Requires build deps in the active venv
-    (`uv sync --extra dev` provides them). `--no-build-isolation` is
-    redundant with [tool.uv].no-build-isolation-package in pyproject.toml
-    but kept explicit for clarity.
+    Escape hatch when scikit-build-core's editable.rebuild auto-rebuild
+    is bypassed. Requires build deps in the active venv
+    (`uv sync --extra dev`).
     """
     set_environment_variables(PYBAMM_ENV, session=session)
     session.run(

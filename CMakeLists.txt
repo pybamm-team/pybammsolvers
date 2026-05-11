@@ -23,7 +23,7 @@ endif()
 
 project(idaklu)
 
-# install_KLU_Sundials.py installs into ${CMAKE_SOURCE_DIR}/.idaklu by default.
+# Default to .idaklu (install_KLU_Sundials.py output).
 if(NOT WIN32 AND NOT DEFINED SuiteSparse_ROOT)
     set(SuiteSparse_ROOT "${CMAKE_SOURCE_DIR}/.idaklu")
 endif()
@@ -154,14 +154,11 @@ if (${USE_PYTHON_CASADI})
         message("Found Python CasADi library directory: ${CASADI_LIB_DIR}")
         target_link_directories(idaklu PRIVATE ${CASADI_LIB_DIR})
 
-        # RPATH for `pybammsolvers/idaklu.<abi>.so`:
-        #   @loader_path/../casadi (or $ORIGIN/...): finds libcasadi via the
-        #     casadi pip package at runtime.
-        #   .idaklu/{lib,lib64}: vendored SUNDIALS/SuiteSparse from
-        #     install_KLU_Sundials.py — used at runtime for local/sdist
-        #     installs, and at wheel-repair time so auditwheel/delocate can
-        #     locate the libs to bundle (they rewrite these entries during
-        #     repair). Windows uses vcpkg static linking; no RPATH needed.
+        # RPATH entries for `pybammsolvers/idaklu.<abi>.so`:
+        #   @loader_path/../casadi / $ORIGIN/../casadi: finds libcasadi at
+        #     runtime.  .idaklu/{lib,lib64}: vendored SUNDIALS/SuiteSparse
+        #     (used at runtime and by auditwheel/delocate at repair time).
+        #     Windows uses vcpkg static linking; no RPATH needed.
         if (APPLE)
             set(IDAKLU_INSTALL_RPATH
                 "@loader_path/../casadi"
@@ -181,9 +178,8 @@ if (${USE_PYTHON_CASADI})
             INSTALL_RPATH "${IDAKLU_INSTALL_RPATH}"
             BUILD_WITH_INSTALL_RPATH TRUE
         )
-        # Link against casadi by name, not absolute path, to avoid issues with
-        # pip's isolated build environments changing paths between configure and build
-        # casadi 3.7+ exports the target as casadi::casadi instead of casadi
+        # casadi 3.7+ exports casadi::casadi; link by name to avoid stale
+        # paths from pip's isolated build environments.
         if(TARGET casadi::casadi)
             target_link_libraries(idaklu PRIVATE casadi::casadi)
         else()
@@ -252,5 +248,4 @@ endif ()
 include_directories(${SuiteSparse_INCLUDE_DIRS})
 target_link_libraries(idaklu PRIVATE ${SuiteSparse_LIBRARIES})
 
-# Place the .so under pybammsolvers/ in the wheel.
 install(TARGETS idaklu LIBRARY DESTINATION ${SKBUILD_PROJECT_NAME})

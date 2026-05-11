@@ -41,8 +41,8 @@ jobs:
           cd vcpkg
           .\bootstrap-vcpkg.bat
 
-      # Surface ACTIONS_CACHE_URL / ACTIONS_RUNTIME_TOKEN to subsequent steps so
-      # vcpkg's `x-gha` binary source can read/write the GitHub Actions cache.
+      # Propagate GitHub Actions cache env vars so vcpkg's `x-gha` binary
+      # source can read/write cached binaries.
       - name: Export GitHub Actions cache env
         uses: actions/github-script@v7
         with:
@@ -99,7 +99,7 @@ jobs:
           CIBW_BEFORE_ALL_LINUX: >
             yum -y install openblas-devel lapack-devel &&
             python install_KLU_Sundials.py
-          # libcasadi ships as a pip dep, not bundled (resolved at runtime via $ORIGIN/../casadi).
+          # libcasadi ships as a pip dep (resolved at runtime via $ORIGIN/../casadi).
           CIBW_REPAIR_WHEEL_COMMAND_LINUX: auditwheel repair --exclude libcasadi.so.3.7 -w {dest_dir} {wheel}
           CIBW_TEST_EXTRAS: "dev"
           CIBW_TEST_COMMAND: |
@@ -175,18 +175,15 @@ jobs:
 
             export CC=/usr/bin/clang
             export CXX=/usr/bin/clang++
-            # Force both SUNDIALS and pybammsolvers to link the conda libomp
-            # in .idaklu/lib (not Homebrew's, which has a too-high
-            # MACOSX_DEPLOYMENT_TARGET for the wheel). One libomp source means
-            # delocate sees a single libomp.dylib to bundle.
+            # Link conda libomp (not Homebrew's — too-high MACOSX_DEPLOYMENT_TARGET).
+            # One libomp source ensures delocate bundles a single copy.
             export CPPFLAGS="$CPPFLAGS -Xpreprocessor -fopenmp"
             export CFLAGS="$CFLAGS -I$PREFIX/include"
             export CXXFLAGS="$CXXFLAGS -I$PREFIX/include"
             export LDFLAGS="$LDFLAGS -L$PREFIX/lib -lomp"
 
-            # install_KLU_Sundials.py inspects CIBUILDWHEEL to decide whether
-            # to inject Homebrew OpenMP overrides; set it explicitly so it
-            # uses the conda libomp via LDFLAGS instead.
+            # install_KLU_Sundials.py checks CIBUILDWHEEL to decide whether to
+            # inject Homebrew OpenMP overrides; set it so it uses conda libomp.
             export CIBUILDWHEEL="1"
 
             python install_KLU_Sundials.py
@@ -196,10 +193,9 @@ jobs:
           MACOSX_DEPLOYMENT_TARGET: ${{ matrix.os == 'macos-latest' && '11.0' || '10.13' }}
           CIBW_ARCHS_MACOS: auto
           CIBW_BEFORE_BUILD: python -m pip install delocate
-          # libcasadi ships as a pip dep, not bundled (resolved at runtime via
-          # @loader_path/../casadi). delocate can't resolve it at repair time
-          # since casadi lives in the build venv, not next to the .so — hence
-          # --ignore-missing-dependencies. --exclude is belt-and-braces.
+          # libcasadi ships as a pip dep (resolved at runtime via
+          # @loader_path/../casadi); delocate can't locate it at repair time
+          # since it lives in the build venv — hence --exclude + --ignore-missing-dependencies.
           CIBW_REPAIR_WHEEL_COMMAND: |
             if [[ $(uname -m) == "x86_64" ]]; then
               delocate-listdeps {wheel} && delocate-wheel -v -w {dest_dir} {wheel} --exclude libcasadi --ignore-missing-dependencies
