@@ -37,16 +37,11 @@ def set_environment_variables(env_dict, session):
         session.env[key] = value
 
 
-# Synced with [build-system].requires; installed into the session venv before
-# editable install. casadi is needed because CMake queries it at configure time
-# for include/library paths (USE_PYTHON_CASADI on Linux/macOS).
-BUILD_DEPS = (
-    "scikit-build-core>=0.10",
-    "pybind11>=3.0.1",
-    "cmake>=3.13",
-    "ninja",
-    "casadi==3.7.2; platform_system!='Windows'",
-)
+# Load [build-system].requires from pyproject.toml and add cmake/ninja which
+# scikit-build-core provides during isolated builds but we need explicitly for
+# --no-build-isolation editable installs.
+_pyproject = nox.project.load_toml("pyproject.toml")
+BUILD_DEPS = (*_pyproject["build-system"]["requires"], "cmake>=3.13", "ninja")
 
 
 def editable_install(session, *extras, no_deps=False):
