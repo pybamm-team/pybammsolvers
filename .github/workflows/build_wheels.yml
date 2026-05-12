@@ -62,6 +62,7 @@ jobs:
             VCPKG_BINARY_SOURCES="clear;x-gha,readwrite"
             CMAKE_GENERATOR="Visual Studio 17 2022"
             CMAKE_GENERATOR_PLATFORM=x64
+          CIBW_ENVIRONMENT_PASS_WINDOWS: "ACTIONS_CACHE_URL ACTIONS_RUNTIME_TOKEN"
           CIBW_ARCHS: AMD64
           CIBW_BEFORE_BUILD: python -m pip install delvewheel
           CIBW_REPAIR_WHEEL_COMMAND: delvewheel repair --add-path C:/Windows/System32 -w {dest_dir} {wheel}
