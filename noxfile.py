@@ -105,10 +105,11 @@ def run_integration(session):
     if sys.platform != "win32":
         session.run("python", "install_KLU_Sundials.py")
 
-    # Editable install first so a later `pip install pybamm` cannot shadow it
-    # with the PyPI release.
     editable_install(session, "dev")
     session.install("pybamm", silent=False)
+
+    # Reinstall local pybammsolvers since pybamm pulls it from PyPI
+    editable_install(session, no_deps=True)
 
     # Run integration tests
     session.run("pytest", "tests", "-m", "integration", *session.posargs)
@@ -134,6 +135,9 @@ def run_benchmarks(session):
 
     # Install PyBaMM
     session.install("pybamm", silent=False)
+
+    # Reinstall local pybammsolvers since pybamm pulls it from PyPI
+    editable_install(session, no_deps=True)
 
     # Run the benchmark orchestrator script
     session.run("python", "tests/pybamm_benchmarks/run_benchmarks.py", *session.posargs)
@@ -240,16 +244,16 @@ def run_pybamm_tests(session):
     else:
         session.warn("Skipping install_KLU_Sundials.py on Windows")
 
-    # Editable install first so a later `pip install pybamm` cannot shadow it
-    # with the PyPI release.
-    editable_install(session, no_deps=True)
-
     # Install PyBaMM with all dependencies
     session.log("Installing PyBaMM with all dependencies...")
     session.cd(str(pybamm_dir))
     # Install PyBaMM extras and dev dependency group (PEP 735)
     session.install("-e", ".[all,jax]", silent=False)
     session.install("--group", "dev", silent=False)
+
+    # Reinstall local pybammsolvers since pybamm pulls it from PyPI
+    session.cd(str(Path(__file__).parent))
+    editable_install(session, no_deps=True)
 
     # Run PyBaMM tests
     session.cd(str(pybamm_dir))
