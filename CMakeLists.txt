@@ -17,7 +17,8 @@ if (DEFINED ENV{VCPKG_DEFAULT_TRIPLET} AND NOT DEFINED VCPKG_TARGET_TRIPLET)
             CACHE STRING "Vcpkg target triplet")
 endif ()
 
-if(WIN32 AND NOT DEFINED VCPKG_ROOT_DIR AND NOT DEFINED ENV{VCPKG_ROOT_DIR})
+# Require vcpkg on Windows unless building via conda (which sets CONDA_BUILD=1)
+if(WIN32 AND NOT DEFINED VCPKG_ROOT_DIR AND NOT DEFINED ENV{VCPKG_ROOT_DIR} AND NOT DEFINED ENV{CONDA_BUILD})
     message(FATAL_ERROR "Windows builds require VCPKG_ROOT_DIR (CMake variable or environment variable) to be set.")
 endif()
 
