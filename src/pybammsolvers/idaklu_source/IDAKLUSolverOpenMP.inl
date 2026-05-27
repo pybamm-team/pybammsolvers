@@ -802,7 +802,9 @@ bool IDAKLUSolverOpenMP<ExprSet>::NonlinearSolverInitialConditions(
   NonlinearResult result = as.solver->solve_single(t_val, solve_ptr);
   const bool success = nonlinear_success(result);
 
-  if (success) {
+  // Keep the solved state if it is no worse than the guess: the Newton can
+  // reduce the residual yet still fail the WRMS step-norm test at tiny atol.
+  if (success || as.solver->final_res_norm() <= as.solver->initial_res_norm()) {
     RecoverYp(t_val);
   } else {
     std::memcpy(y_val, as.y_backup.data(), number_of_states * sizeof(sunrealtype));
