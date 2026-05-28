@@ -59,7 +59,7 @@ jobs:
             VCPKG_ROOT_DIR=C:\vcpkg
             VCPKG_DEFAULT_TRIPLET=x64-windows-static-md
             VCPKG_FEATURE_FLAGS=manifests,registries
-            VCPKG_BINARY_SOURCES="clear;x-gha,readwrite"
+            VCPKG_BINARY_SOURCES=${{ github.event_name == 'release' && '"clear"' || '"clear;x-gha,readwrite"' }}
             CMAKE_GENERATOR="Visual Studio 17 2022"
             CMAKE_GENERATOR_PLATFORM=x64
           CIBW_ENVIRONMENT_PASS_WINDOWS: "ACTIONS_CACHE_URL ACTIONS_RUNTIME_TOKEN"
