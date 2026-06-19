@@ -1,5 +1,12 @@
 # IDAKLU solver
 
+> [!WARNING]
+> **This repository is archived and no longer maintained.**
+> The IDAKLU solver now lives in the PyBaMM monorepo:
+> **https://github.com/pybamm-team/PyBaMM**
+>
+> Please file issues and contributions there. This repo is kept read-only for historical reference.
+
 Standalone repository for the C/C++ solvers used in PyBaMM
 
 ## Installation
